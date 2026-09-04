@@ -20,6 +20,14 @@ const SESSION_RENEW_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 // miss any packets at the exact swap moment.
 const SOCKET_OVERLAP_MS = 2 * 1000; // 2 seconds
 
+// System-audio health monitoring (macOS SystemAudioDump)
+const AUDIO_STATS_INTERVAL_MS = 10 * 1000;   // periodic "is audio flowing" summary in the log
+const AUDIO_STALL_MS = 4 * 1000;             // no stdout data for this long -> capture is dead, restart it
+const AUDIO_STALL_MAX_RESTARTS = 5;
+const AUDIO_SPEECH_RMS = 0.01;               // above this the system audio clearly contains sound (int16 scaled to 1.0)
+const STT_STALL_MS = 20 * 1000;              // sound present but no STT events for this long -> recreate sessions
+const STT_STALL_MIN_INTERVAL_MS = 60 * 1000; // never recreate more often than this
+
 class SttService {
     constructor() {
         this.mySttSession = null;
@@ -35,6 +43,11 @@ class SttService {
         
         // System audio capture
         this.systemAudioProc = null;
+        this.audioHealth = null;          // stats for the current SystemAudioDump run
+        this.audioHealthInterval = null;
+        this.lastTheirSttEventAt = 0;     // last VAD/transcription event received on the "Them" session
+        this.currentLanguage = 'en';
+        this.lastSttStallRecoveryAt = 0;
 
         // Keep-alive / renewal timers
         this.keepAliveInterval = null;
@@ -150,6 +163,7 @@ class SttService {
     }
 
     async initializeSttSessions(language = 'en') {
+        this.currentLanguage = language || 'en';
         const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'en';
 
         const modelInfo = await modelStateService.getCurrentModelInfo('stt');
@@ -270,6 +284,7 @@ class SttService {
             } else {
                 const type = message.type;
                 const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
+                this._noteRealtimeEvent('Me', message);
 
                 if (type === 'conversation.item.input_audio_transcription.delta') {
                     if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
@@ -408,6 +423,7 @@ class SttService {
             } else {
                 const type = message.type;
                 const text = message.transcript || message.delta || (message.alternatives && message.alternatives[0]?.transcript) || '';
+                this._noteRealtimeEvent('Them', message);
                 if (type === 'conversation.item.input_audio_transcription.delta') {
                     if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
                     this.theirCompletionTimer = null;
@@ -541,6 +557,99 @@ class SttService {
         }, SOCKET_OVERLAP_MS);
     }
 
+    /**
+     * Logs OpenAI Realtime housekeeping events that would otherwise be silent
+     * (VAD start/stop, commits, failed transcriptions) and records "Them" activity
+     * for the stall watchdog.
+     */
+    _noteRealtimeEvent(speaker, message) {
+        const type = message?.type || '';
+        if (speaker === 'Them' && (type.startsWith('input_audio_buffer.') || type.startsWith('conversation.item.input_audio_transcription.'))) {
+            this.lastTheirSttEventAt = Date.now();
+        }
+        if (type === 'conversation.item.input_audio_transcription.failed') {
+            console.error(`[${speaker}] STT transcription failed:`, JSON.stringify(message.error || message));
+        } else if (type === 'input_audio_buffer.speech_started' || type === 'input_audio_buffer.speech_stopped') {
+            console.log(`[${speaker}] STT ${type.replace('input_audio_buffer.', '')}`);
+        } else if (type === 'session.updated') {
+            console.log(`[${speaker}] STT session configured (${message.session?.audio?.input?.transcription?.model || 'model n/a'})`);
+        }
+    }
+
+    _computeRms(pcm16Buffer) {
+        const samples = pcm16Buffer.length >> 1;
+        if (samples === 0) return 0;
+        let sum = 0;
+        for (let i = 0; i < samples; i++) {
+            const v = pcm16Buffer.readInt16LE(i * 2) / 32768;
+            sum += v * v;
+        }
+        return Math.sqrt(sum / samples);
+    }
+
+    _startAudioHealthMonitor(language) {
+        this._stopAudioHealthMonitor();
+        this.audioHealth = { startedAt: Date.now(), lastDataAt: Date.now(), chunks: 0, rmsSum: 0, peak: 0, restarts: this.audioHealth?.restarts || 0, loudSince: 0 };
+        let lastReportAt = Date.now();
+
+        this.audioHealthInterval = setInterval(async () => {
+            const h = this.audioHealth;
+            if (!h || !this.theirSttSession) return;
+            const now = Date.now();
+
+            // 1) Capture stall: SystemAudioDump stopped delivering samples (typical after an
+            //    output-device switch, e.g. headphones connected). Restart the helper process.
+            if (this.systemAudioProc && now - h.lastDataAt > AUDIO_STALL_MS) {
+                if (h.restarts >= AUDIO_STALL_MAX_RESTARTS) {
+                    console.error(`[SystemAudio] No audio data for ${Math.round((now - h.lastDataAt) / 1000)}s and restart limit reached. Stop and start Listen to recover.`);
+                    this.onStatusUpdate?.('System audio capture stopped — restart Listen');
+                    return;
+                }
+                console.warn(`[SystemAudio] No audio data for ${Math.round((now - h.lastDataAt) / 1000)}s, restarting SystemAudioDump (attempt ${h.restarts + 1}/${AUDIO_STALL_MAX_RESTARTS})…`);
+                h.restarts += 1;
+                h.lastDataAt = now;
+                try {
+                    this.stopMacOSAudioCapture({ keepMonitor: true });
+                    await this.startMacOSAudioCapture({ keepMonitor: true });
+                } catch (err) {
+                    console.error('[SystemAudio] Restart failed:', err.message);
+                }
+                return;
+            }
+
+            // 2) STT stall: audio is clearly present but the "Them" session emits nothing.
+            if (h.loudSince && now - h.loudSince > STT_STALL_MS && now - this.lastTheirSttEventAt > STT_STALL_MS
+                && now - this.lastSttStallRecoveryAt > STT_STALL_MIN_INTERVAL_MS) {
+                console.warn(`[SttService] System audio has sound for ${Math.round((now - h.loudSince) / 1000)}s but no "Them" STT events — recreating STT sessions.`);
+                this.lastSttStallRecoveryAt = now;
+                h.loudSince = now;
+                try {
+                    await this.renewSessions(language);
+                } catch (err) {
+                    console.error('[SttService] STT stall recovery failed:', err.message);
+                }
+                return;
+            }
+
+            // 3) Periodic summary so a silent failure is visible in the log.
+            if (now - lastReportAt >= AUDIO_STATS_INTERVAL_MS) {
+                const avg = h.chunks ? (h.rmsSum / h.chunks) : 0;
+                const sinceEvent = this.lastTheirSttEventAt ? `${Math.round((now - this.lastTheirSttEventAt) / 1000)}s ago` : 'never';
+                console.log(`[SystemAudio] last ${Math.round((now - lastReportAt) / 1000)}s: chunks=${h.chunks} avgRMS=${avg.toFixed(4)} peak=${h.peak.toFixed(3)} | last "Them" STT event: ${sinceEvent}`);
+                h.chunks = 0; h.rmsSum = 0; h.peak = 0;
+                lastReportAt = now;
+            }
+        }, 2000);
+    }
+
+    _stopAudioHealthMonitor() {
+        if (this.audioHealthInterval) {
+            clearInterval(this.audioHealthInterval);
+            this.audioHealthInterval = null;
+        }
+        this.audioHealth = null;
+    }
+
     async sendMicAudioContent(data, mimeType) {
         // const provider = await this.getAiProvider();
         // const isGemini = provider === 'gemini';
@@ -624,7 +733,7 @@ class SttService {
         });
     }
 
-    async startMacOSAudioCapture() {
+    async startMacOSAudioCapture({ keepMonitor = false } = {}) {
         if (process.platform !== 'darwin' || !this.theirSttSession) return false;
 
         await this.killExistingSystemAudioDump();
@@ -679,6 +788,23 @@ class SttService {
                 const monoChunk = CHANNELS === 2 ? this.convertStereoToMono(chunk) : chunk;
                 const base64Data = monoChunk.toString('base64');
 
+                const h = this.audioHealth;
+                if (h) {
+                    const rms = this._computeRms(monoChunk);
+                    h.lastDataAt = Date.now();
+                    h.chunks += 1;
+                    h.rmsSum += rms;
+                    if (rms > h.peak) h.peak = rms;
+                    if (rms > AUDIO_SPEECH_RMS) {
+                        if (!h.loudSince) h.loudSince = Date.now();
+                        h.quietChunks = 0;
+                    } else {
+                        // ~3s of quiet (30 x 100ms chunks) ends the "sound present" window
+                        h.quietChunks = (h.quietChunks || 0) + 1;
+                        if (h.quietChunks > 30) h.loudSince = 0;
+                    }
+                }
+
                 this.sendToRenderer('system-audio-data', { data: base64Data });
 
                 if (this.theirSttSession) {
@@ -714,6 +840,12 @@ class SttService {
             this.systemAudioProc = null;
         });
 
+        if (!keepMonitor) {
+            this._startAudioHealthMonitor(this.currentLanguage);
+        } else if (this.audioHealth) {
+            this.audioHealth.lastDataAt = Date.now();
+        }
+
         return true;
     }
 
@@ -729,7 +861,8 @@ class SttService {
         return monoBuffer;
     }
 
-    stopMacOSAudioCapture() {
+    stopMacOSAudioCapture({ keepMonitor = false } = {}) {
+        if (!keepMonitor) this._stopAudioHealthMonitor();
         if (this.systemAudioProc) {
             console.log('Stopping SystemAudioDump...');
             this.systemAudioProc.kill('SIGTERM');
@@ -778,6 +911,7 @@ class SttService {
         console.log('All STT sessions closed.');
 
         // Reset state
+        this.lastTheirSttEventAt = 0;
         this.myCurrentUtterance = '';
         this.theirCurrentUtterance = '';
         this.myCompletionBuffer = '';
