@@ -416,6 +416,27 @@ export class SettingsView extends LitElement {
         }
         .model-item:hover { background-color: rgba(255,255,255,0.1); }
         .model-item.selected { background-color: rgba(0, 122, 255, 0.4); font-weight: 500; }
+        .model-badge {
+            font-size: 9px; margin-left: 6px; padding: 1px 4px; border-radius: 3px;
+            background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); font-weight: 400;
+        }
+        .model-remove {
+            background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer;
+            font-size: 11px; padding: 0 4px; line-height: 1;
+        }
+        .model-remove:hover { color: rgba(255, 80, 80, 0.9); }
+        .custom-model-form {
+            display: flex; gap: 4px; align-items: center; margin-top: 4px;
+            padding: 4px; border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .custom-model-form select, .custom-model-form input {
+            background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2);
+            color: white; border-radius: 4px; padding: 4px 6px; font-size: 11px; box-sizing: border-box;
+        }
+        .custom-model-form select { flex: 0 0 92px; }
+        .custom-model-form input { flex: 1; min-width: 0; }
+        .custom-model-form .settings-button { padding: 4px 8px; }
+        .custom-model-hint { font-size: 10px; color: rgba(255,255,255,0.5); padding: 4px; }
         .model-status { 
             font-size: 9px; 
             color: rgba(255,255,255,0.6); 
@@ -887,6 +908,75 @@ export class SettingsView extends LitElement {
         }
     }
     
+    // Providers that accept user-defined model ids (local providers manage their own catalogs).
+    getCustomModelProviders(type) {
+        const excluded = new Set(['ollama', 'whisper', 'openai-glass']);
+        return Object.entries(this.providerConfig)
+            .filter(([id]) => !excluded.has(id) && !!this.apiKeys[id])
+            .filter(([, config]) => type === 'llm' ? config.llmModels !== undefined : config.sttModels !== undefined)
+            .map(([id, config]) => ({ id, name: config.name }));
+    }
+
+    async handleAddCustomModel(type) {
+        const providerSelect = this.shadowRoot.getElementById(`custom-model-provider-${type}`);
+        const idInput = this.shadowRoot.getElementById(`custom-model-id-${type}`);
+        const provider = providerSelect?.value;
+        const modelId = idInput?.value?.trim();
+        if (!provider || !modelId) return;
+
+        this.saving = true;
+        try {
+            const result = await window.api.settingsView.addCustomModel({ provider, type, modelId, name: modelId });
+            if (!result?.success) {
+                alert(`Failed to add model: ${result?.error || 'unknown error'}`);
+                return;
+            }
+            idInput.value = '';
+            this.providerConfig = await window.api.settingsView.getProviderConfig();
+            await this.refreshModelData();
+        } catch (error) {
+            console.error('[SettingsView] handleAddCustomModel failed:', error);
+            alert(`Failed to add model: ${error.message}`);
+        } finally {
+            this.saving = false;
+            this.requestUpdate();
+        }
+    }
+
+    async handleRemoveCustomModel(type, modelId) {
+        const provider = this.getProviderForModel(type, modelId);
+        if (!provider) return;
+        this.saving = true;
+        try {
+            await window.api.settingsView.removeCustomModel({ provider, type, modelId });
+            this.providerConfig = await window.api.settingsView.getProviderConfig();
+            await this.refreshModelData();
+        } catch (error) {
+            console.error('[SettingsView] handleRemoveCustomModel failed:', error);
+        } finally {
+            this.saving = false;
+            this.requestUpdate();
+        }
+    }
+
+    renderCustomModelForm(type) {
+        const providers = this.getCustomModelProviders(type);
+        if (providers.length === 0) {
+            return html`<div class="custom-model-hint">Add an API key above to register custom ${type.toUpperCase()} models.</div>`;
+        }
+        return html`
+            <div class="custom-model-form">
+                <select id="custom-model-provider-${type}" ?disabled=${this.saving}>
+                    ${providers.map(p => html`<option value=${p.id}>${p.name}</option>`)}
+                </select>
+                <input id="custom-model-id-${type}" type="text" placeholder="Model id (e.g. gpt-5.6-terra)"
+                    ?disabled=${this.saving}
+                    @keydown=${(e) => { if (e.key === 'Enter') this.handleAddCustomModel(type); }}>
+                <button class="settings-button" ?disabled=${this.saving} @click=${() => this.handleAddCustomModel(type)}>Add</button>
+            </div>
+        `;
+    }
+
     getProviderForModel(type, modelId) {
         for (const [providerId, config] of Object.entries(this.providerConfig)) {
             const models = type === 'llm' ? config.llmModels : config.sttModels;
@@ -1276,7 +1366,7 @@ export class SettingsView extends LitElement {
             <div class="model-selection-section">
                 <div class="model-select-group">
                     <label>LLM Model: <strong>${getModelName('llm', this.selectedLlm) || 'Not Set'}</strong></label>
-                    <button class="settings-button full-width" @click=${() => this.toggleModelList('llm')} ?disabled=${this.saving || this.availableLlmModels.length === 0}>
+                    <button class="settings-button full-width" @click=${() => this.toggleModelList('llm')} ?disabled=${this.saving || (this.availableLlmModels.length === 0 && this.getCustomModelProviders('llm').length === 0)}>
                         Change LLM Model
                     </button>
                     ${this.isLlmListVisible ? html`
@@ -1290,7 +1380,9 @@ export class SettingsView extends LitElement {
                                 return html`
                                     <div class="model-item ${this.selectedLlm === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('llm', model.id)}>
-                                        <span>${model.name}</span>
+                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}</span>
+                                        ${model.custom ? html`<button class="model-remove" title="Remove custom model"
+                                            @click=${(e) => { e.stopPropagation(); this.handleRemoveCustomModel('llm', model.id); }}>✕</button>` : ''}
                                         ${isOllama ? html`
                                             ${isInstalling ? html`
                                                 <div class="install-progress">
@@ -1305,12 +1397,13 @@ export class SettingsView extends LitElement {
                                     </div>
                                 `;
                             })}
+                            ${this.renderCustomModelForm('llm')}
                         </div>
                     ` : ''}
                 </div>
                 <div class="model-select-group">
                     <label>STT Model: <strong>${getModelName('stt', this.selectedStt) || 'Not Set'}</strong></label>
-                    <button class="settings-button full-width" @click=${() => this.toggleModelList('stt')} ?disabled=${this.saving || this.availableSttModels.length === 0}>
+                    <button class="settings-button full-width" @click=${() => this.toggleModelList('stt')} ?disabled=${this.saving || (this.availableSttModels.length === 0 && this.getCustomModelProviders('stt').length === 0)}>
                         Change STT Model
                     </button>
                     ${this.isSttListVisible ? html`
@@ -1326,7 +1419,9 @@ export class SettingsView extends LitElement {
                                 return html`
                                     <div class="model-item ${this.selectedStt === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('stt', model.id)}>
-                                        <span>${model.name}</span>
+                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}</span>
+                                        ${model.custom ? html`<button class="model-remove" title="Remove custom model"
+                                            @click=${(e) => { e.stopPropagation(); this.handleRemoveCustomModel('stt', model.id); }}>✕</button>` : ''}
                                         ${isWhisper ? html`
                                             ${isInstalling ? html`
                                                 <div class="install-progress">
@@ -1341,6 +1436,7 @@ export class SettingsView extends LitElement {
                                     </div>
                                 `;
                             })}
+                            ${this.renderCustomModelForm('stt')}
                         </div>
                     ` : ''}
                 </div>

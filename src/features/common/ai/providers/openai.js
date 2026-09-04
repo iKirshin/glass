@@ -4,6 +4,31 @@ const { Portkey } = require('portkey-ai');
 const { Readable } = require('stream');
 const { getProviderForModel } = require('../factory.js');
 
+// GPT-5 / GPT-6 / o-series models are reasoning models: they reject `temperature`
+// and require `max_completion_tokens` instead of `max_tokens`.
+const REASONING_MODEL_RE = /^(gpt-5|gpt-6|o[1-9])/i;
+
+function isReasoningModel(model) {
+  return REASONING_MODEL_RE.test(model || '');
+}
+
+/**
+ * Builds Chat Completions request params that are valid for both classic
+ * (gpt-4.1, gpt-4o) and reasoning (gpt-5.x, o-series) models.
+ */
+function buildChatParams({ model, messages, temperature, maxTokens, stream = false }) {
+  const params = { model, messages };
+  if (isReasoningModel(model)) {
+    params.max_completion_tokens = maxTokens;
+    params.reasoning_effort = 'low'; // keep latency low for a real-time assistant
+  } else {
+    params.temperature = temperature;
+    params.max_tokens = maxTokens;
+  }
+  if (stream) params.stream = true;
+  return params;
+}
+
 
 class OpenAIProvider {
     static async validateApiKey(key) {
@@ -41,7 +66,7 @@ class OpenAIProvider {
  * @param {string} [opts.portkeyVirtualKey] - Portkey virtual key
  * @returns {Promise<object>} STT session
  */
-async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey = false, portkeyVirtualKey, ...config }) {
+async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey = false, portkeyVirtualKey, model = 'gpt-4o-mini-transcribe', ...config }) {
   const keyType = usePortkey ? 'vKey' : 'apiKey';
   const key = usePortkey ? (portkeyVirtualKey || apiKey) : apiKey;
 
@@ -71,7 +96,7 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey =
         session: {
           input_audio_format: 'pcm16',
           input_audio_transcription: {
-            model: 'gpt-4o-mini-transcribe',
+            model: model,
             prompt: config.prompt || '',
             language: language || 'en'
           },
@@ -170,14 +195,11 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
   
   const callApi = async (messages) => {
     if (!usePortkey) {
-      const response = await client.chat.completions.create({
-        model: model,
-        messages: messages,
-        temperature: temperature,
-        max_tokens: maxTokens
-      });
+      const response = await client.chat.completions.create(
+        buildChatParams({ model, messages, temperature, maxTokens })
+      );
       return {
-        content: response.choices[0].message.content.trim(),
+        content: (response.choices[0].message.content || '').trim(),
         raw: response
       };
     } else {
@@ -189,12 +211,7 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
             'x-portkey-virtual-key': portkeyVirtualKey || apiKey,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            model: model,
-            messages,
-            temperature,
-            max_tokens: maxTokens,
-        }),
+        body: JSON.stringify(buildChatParams({ model, messages, temperature, maxTokens })),
       });
 
       if (!response.ok) {
@@ -203,7 +220,7 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
 
       const result = await response.json();
       return {
-        content: result.choices[0].message.content.trim(),
+        content: (result.choices[0].message.content || '').trim(),
         raw: result
       };
     }
@@ -282,13 +299,7 @@ function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxT
       const response = await fetch(fetchUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: model,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-          stream: true,
-        }),
+        body: JSON.stringify(buildChatParams({ model, messages, temperature, maxTokens, stream: true })),
       });
 
       if (!response.ok) {
@@ -304,5 +315,7 @@ module.exports = {
     OpenAIProvider,
     createSTT,
     createLLM,
-    createStreamingLLM
+    createStreamingLLM,
+    isReasoningModel,
+    buildChatParams,
 }; 

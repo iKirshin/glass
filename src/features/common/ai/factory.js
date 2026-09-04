@@ -23,9 +23,13 @@ const PROVIDERS = {
       handler: () => require("./providers/openai"),
       llmModels: [
           { id: 'gpt-4.1', name: 'GPT-4.1' },
+          { id: 'gpt-5.6', name: 'GPT-5.6' },
+          { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra' },
+          { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' },
       ],
       sttModels: [
-          { id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' }
+          { id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' },
+          { id: 'gpt-4o-transcribe', name: 'GPT-4o Transcribe' },
       ],
   },
 
@@ -44,16 +48,22 @@ const PROVIDERS = {
       handler: () => require("./providers/gemini"),
       llmModels: [
           { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+          { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+          { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' },
+          { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (preview)' },
       ],
       sttModels: [
-          { id: 'gemini-live-2.5-flash-preview', name: 'Gemini Live 2.5 Flash' }
+          { id: 'gemini-live-2.5-flash-preview', name: 'Gemini Live 2.5 Flash' },
+          { id: 'gemini-3.1-flash-live-preview', name: 'Gemini 3.1 Flash Live (preview)' },
       ],
   },
   'anthropic': {
       name: 'Anthropic',
       handler: () => require("./providers/anthropic"),
       llmModels: [
-          { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+          { id: 'claude-opus-5', name: 'Claude Opus 5' },
+          { id: 'claude-sonnet-5', name: 'Claude Sonnet 5' },
+          { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
       ],
       sttModels: [],
   },

@@ -125,6 +125,36 @@ We have a list of [help wanted](https://github.com/pickle-com/glass/issues?q=is%
 - Jul 8: Now support Windows(beta), Improved AEC by Rust(to seperate mic/system audio), shortcut editing(beta)
 - Jul 8: Now support Local LLM & STT, Firebase Data Storage 
 
+## 🍴 About this fork (iKirshin/glass)
+
+This fork of [pickle-com/glass](https://github.com/pickle-com/glass) focuses on making it easy to plug in new AI models.
+
+**What changed**
+
+- Updated built-in model catalog: OpenAI GPT-5.6 family, Claude Opus 5 / Sonnet 5 / Haiku 4.5, Gemini 2.5 Pro / 3.x, extra STT models.
+- Providers now handle the newer model families correctly (reasoning models use `max_completion_tokens` and no `temperature`; Claude 4.7+ models omit sampling params; text is extracted from text blocks only).
+- **Custom models**: any model id can be registered for an API-based provider without code changes.
+
+**Adding a model from the UI**
+
+Open Settings → *Change LLM Model* / *Change STT Model* → at the bottom of the list pick the provider, type the model id (for example `gpt-5.6-terra` or `claude-opus-4-8`) and press *Add*. The model is saved and selected immediately.
+
+**Adding a model by editing a file**
+
+Custom models live in `custom-models.json` inside the app's user-data directory (`~/Library/Application Support/Glass/` on macOS, `%APPDATA%/Glass/` on Windows). Restart the app after editing it:
+
+```json
+{
+  "openai":    { "llmModels": [{ "id": "gpt-5.6-terra", "name": "GPT-5.6 Terra" }] },
+  "anthropic": { "llmModels": [{ "id": "claude-opus-4-8", "name": "Claude Opus 4.8" }] },
+  "gemini":    { "sttModels": [{ "id": "gemini-3.1-flash-live-preview", "name": "Gemini 3.1 Flash Live" }] }
+}
+```
+
+**Adding a model permanently / adding a new provider**
+
+Built-in models are declared in [`src/features/common/ai/factory.js`](src/features/common/ai/factory.js) (`PROVIDERS`). A new provider needs a module in `src/features/common/ai/providers/` exporting `createLLM`, `createStreamingLLM` and/or `createSTT`, plus an entry in `PROVIDERS` and in the `classNameMap` of `getProviderClass`.
+
 
 ## About Pickle
 

@@ -118,6 +118,9 @@ module.exports = {
     ipcMain.handle('model:get-available-models', async (e, { type }) => await modelStateService.getAvailableModels(type));
     ipcMain.handle('model:are-providers-configured', async () => await modelStateService.areProvidersConfigured());
     ipcMain.handle('model:get-provider-config', () => modelStateService.getProviderConfig());
+    ipcMain.handle('model:add-custom-model', async (e, payload) => await modelStateService.handleAddCustomModel(payload));
+    ipcMain.handle('model:remove-custom-model', async (e, payload) => await modelStateService.handleRemoveCustomModel(payload));
+    ipcMain.handle('model:get-custom-models-path', () => modelStateService.getCustomModelsFilePath());
     ipcMain.handle('model:re-initialize-state', async () => await modelStateService.initialize());
 
     // LocalAIManager 이벤트를 모든 윈도우에 브로드캐스트
