@@ -253,7 +253,18 @@ class AskService {
             const screenshotResult = await captureScreenshot({ quality: 'medium' });
             const screenshotBase64 = screenshotResult.success ? screenshotResult.base64 : null;
 
-            const conversationHistory = this._formatConversationForPrompt(conversationHistoryRaw);
+            // IPC callers pass no history; fall back to the live Listen transcript so the
+            // answer is based on what was actually said, not only on the screenshot.
+            let historySource = conversationHistoryRaw;
+            if (!historySource || historySource.length === 0) {
+                try {
+                    historySource = require('../listen/listenService').getConversationHistory() || [];
+                } catch (e) {
+                    historySource = [];
+                }
+            }
+            const conversationHistory = this._formatConversationForPrompt(historySource);
+            console.log(`[AskService] Conversation context: ${historySource.length} transcript lines (last ${Math.min(30, historySource.length)} used)`);
 
             const personaBlock = await personaService.getPromptBlock();
             if (personaBlock) console.log('[AskService] Persona profile applied to system prompt');
@@ -371,6 +382,7 @@ class AskService {
     async _processStream(reader, askWin, sessionId, signal) {
         const decoder = new TextDecoder();
         let fullResponse = '';
+        let pending = ''; // partial SSE line carried over between network chunks
 
         try {
             this.state.isLoading = false;
@@ -380,25 +392,28 @@ class AskService {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                // `stream: true` keeps multi-byte characters split across chunks intact.
+                pending += decoder.decode(value, { stream: true });
+                const lines = pending.split('\n');
+                pending = lines.pop(); // last element is either '' or an incomplete line
 
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.substring(6);
-                        if (data === '[DONE]') {
-                            return; 
+                for (const rawLine of lines) {
+                    const line = rawLine.replace(/\r$/, '');
+                    if (!line.startsWith('data:')) continue;
+                    const data = line.slice(5).trim();
+                    if (data === '[DONE]') {
+                        return;
+                    }
+                    try {
+                        const json = JSON.parse(data);
+                        const token = json.choices?.[0]?.delta?.content || '';
+                        if (token) {
+                            fullResponse += token;
+                            this.state.currentResponse = fullResponse;
+                            this._broadcastState();
                         }
-                        try {
-                            const json = JSON.parse(data);
-                            const token = json.choices[0]?.delta?.content || '';
-                            if (token) {
-                                fullResponse += token;
-                                this.state.currentResponse = fullResponse;
-                                this._broadcastState();
-                            }
-                        } catch (error) {
-                        }
+                    } catch (error) {
+                        console.warn('[AskService] Skipped unparsable stream line:', data.slice(0, 120));
                     }
                 }
             }
