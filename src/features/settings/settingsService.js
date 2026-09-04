@@ -420,6 +420,16 @@ async function setRecordListenSetting(isEnabled) {
     catch (error) { console.error('[SettingsService] Error setting record-listen setting:', error); return { success: false, error: error.message }; }
 }
 
+async function getFilterThemAudioSetting() {
+    try { return settingsRepository.getFilterThemAudio(); }
+    catch (error) { console.error('[SettingsService] Error getting filter-them-audio setting:', error); return true; }
+}
+
+async function setFilterThemAudioSetting(isEnabled) {
+    try { await settingsRepository.setFilterThemAudio(isEnabled); return { success: true }; }
+    catch (error) { console.error('[SettingsService] Error setting filter-them-audio setting:', error); return { success: false, error: error.message }; }
+}
+
 async function openRecordingsFolder() {
     return require('../listen/recordingService').openFolder();
 }
@@ -473,6 +483,8 @@ module.exports = {
     // Model settings facade
     getModelSettings,
     getRecordListenSetting,
+    getFilterThemAudioSetting,
+    setFilterThemAudioSetting,
     setRecordListenSetting,
     openRecordingsFolder,
     clearApiKey,

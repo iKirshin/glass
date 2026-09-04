@@ -147,6 +147,33 @@ function getRecordListen(uid) {
     }
 }
 
+function getFilterThemAudio(uid) {
+    const db = sqliteClient.getDb();
+    try {
+        const row = db.prepare('SELECT filter_them_audio FROM users WHERE uid = ?').get(uid);
+        if (!row || row.filter_them_audio === null || row.filter_them_audio === undefined) return true;
+        return row.filter_them_audio === 1;
+    } catch (err) {
+        console.error('SQLite: Failed to get filter-them-audio setting:', err);
+        return true;
+    }
+}
+
+function setFilterThemAudio(uid, isEnabled) {
+    const db = sqliteClient.getDb();
+    try {
+        const result = db.prepare('UPDATE users SET filter_them_audio = ? WHERE uid = ?').run(isEnabled ? 1 : 0, uid);
+        if (result.changes === 0) {
+            db.prepare('INSERT OR IGNORE INTO users (uid, display_name, email, created_at, filter_them_audio) VALUES (?, ?, ?, ?, ?)')
+              .run(uid, 'Local User', '', Math.floor(Date.now() / 1000), isEnabled ? 1 : 0);
+        }
+        return true;
+    } catch (err) {
+        console.error('SQLite: Failed to set filter-them-audio setting:', err);
+        throw err;
+    }
+}
+
 function setRecordListen(uid, isEnabled) {
     const db = sqliteClient.getDb();
     try {
@@ -163,6 +190,8 @@ function setRecordListen(uid, isEnabled) {
 }
 
 module.exports = {
+    getFilterThemAudio,
+    setFilterThemAudio,
     getRecordListen,
     setRecordListen,
     getPresets,

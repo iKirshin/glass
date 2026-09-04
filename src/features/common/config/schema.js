@@ -7,6 +7,7 @@ const LATEST_SCHEMA = {
             { name: 'created_at', type: 'INTEGER' },
             { name: 'auto_update_enabled', type: 'INTEGER DEFAULT 1' },
             { name: 'record_listen_sessions', type: 'INTEGER DEFAULT 1' },
+            { name: 'filter_them_audio', type: 'INTEGER DEFAULT 1' },
             { name: 'has_migrated_to_firebase', type: 'INTEGER DEFAULT 0' }
         ]
     },

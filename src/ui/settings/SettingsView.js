@@ -526,6 +526,7 @@ export class SettingsView extends LitElement {
         firebaseUser: { type: Object, state: true },
         personaSummary: { type: Object, state: true },
         recordListenEnabled: { type: Boolean, state: true },
+        filterThemAudioEnabled: { type: Boolean, state: true },
         isLoading: { type: Boolean, state: true },
         isContentProtectionOn: { type: Boolean, state: true },
         saving: { type: Boolean, state: true },
@@ -558,6 +559,7 @@ export class SettingsView extends LitElement {
         this.firebaseUser = null;
         this.personaSummary = null;
         this.recordListenEnabled = true;
+        this.filterThemAudioEnabled = true;
         this._personaListener = () => this.loadPersonaSummary();
         this.apiKeys = { openai: '', gemini: '', anthropic: '', whisper: '' };
         this.providerConfig = {};
@@ -608,6 +610,23 @@ export class SettingsView extends LitElement {
         } catch (e) {
             console.error('Error loading record-listen setting:', e);
         }
+    }
+
+    async loadFilterThemAudioSetting() {
+        if (!window.api?.settingsView?.getFilterThemAudio) return;
+        try {
+            this.filterThemAudioEnabled = await window.api.settingsView.getFilterThemAudio();
+        } catch (e) {
+            console.error('Error loading filter-them-audio setting:', e);
+        }
+    }
+
+    async handleToggleFilterThemAudio() {
+        if (!window.api) return;
+        const newValue = !this.filterThemAudioEnabled;
+        const result = await window.api.settingsView.setFilterThemAudio(newValue);
+        if (result?.success) this.filterThemAudioEnabled = newValue;
+        this.requestUpdate();
     }
 
     async handleToggleRecordListen() {
@@ -681,6 +700,7 @@ export class SettingsView extends LitElement {
         this.isLoading = true;
         this.loadPersonaSummary();
         this.loadRecordListenSetting();
+        this.loadFilterThemAudioSetting();
         try {
             // Load essential data first
             const [userState, modelSettings, presets, contentProtection, shortcuts] = await Promise.all([
@@ -1600,6 +1620,9 @@ export class SettingsView extends LitElement {
                     </button>
                     <button class="settings-button full-width" @click=${this.handleToggleRecordListen} title="Save both audio channels (you and the other side) as WAV files for every Listen session">
                         <span>Record Listen Audio: ${this.recordListenEnabled ? 'On' : 'Off'}</span>
+                    </button>
+                    <button class="settings-button full-width" @click=${this.handleToggleFilterThemAudio} title="Speech band-pass (250–3800 Hz) and limiter on the other side's audio before recognition. Applies to the next Listen session.">
+                        <span>Clean Interviewer Audio: ${this.filterThemAudioEnabled ? 'On' : 'Off'}</span>
                     </button>
                     <button class="settings-button full-width" @click=${this.handleOpenRecordings}>
                         <span>Open Recordings Folder</span>

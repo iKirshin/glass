@@ -36,6 +36,16 @@ const settingsRepositoryAdapter = {
         return getBaseRepository().getAutoUpdate(uid);
     },
 
+    getFilterThemAudio: () => {
+        const uid = authService.getCurrentUserId();
+        return getBaseRepository().getFilterThemAudio(uid);
+    },
+
+    setFilterThemAudio: (isEnabled) => {
+        const uid = authService.getCurrentUserId();
+        return getBaseRepository().setFilterThemAudio(uid, isEnabled);
+    },
+
     getRecordListen: () => {
         const uid = authService.getCurrentUserId();
         return getBaseRepository().getRecordListen(uid);

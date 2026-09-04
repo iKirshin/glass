@@ -20,6 +20,7 @@ const SESSION_RENEW_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 // miss any packets at the exact swap moment.
 const SOCKET_OVERLAP_MS = 2 * 1000; // 2 seconds
 const recordingService = require('../recordingService');
+const { SpeechBandFilter } = require('./speechBandFilter');
 
 // System-audio health monitoring (macOS SystemAudioDump)
 const AUDIO_STATS_INTERVAL_MS = 10 * 1000;   // periodic "is audio flowing" summary in the log
@@ -48,6 +49,7 @@ class SttService {
         this.audioHealthInterval = null;
         this.lastTheirSttEventAt = 0;     // last transcription (delta/completed) received on the "Them" session
         this.currentLanguage = 'en';
+        this.themFilter = null;           // speech band-pass + limiter for the "Them" channel (null = off)
         this.lastSttStallRecoveryAt = 0;
 
         // Keep-alive / renewal timers
@@ -165,6 +167,8 @@ class SttService {
 
     async initializeSttSessions(language = 'en') {
         this.currentLanguage = language || 'en';
+        this.themFilter = this._isThemFilterEnabled() ? new SpeechBandFilter() : null;
+        console.log(`[SttService] "Them" audio filter: ${this.themFilter ? 'on (250–3800 Hz band-pass + limiter)' : 'off'}`);
         const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'en';
 
         const modelInfo = await modelStateService.getCurrentModelInfo('stt');
@@ -578,6 +582,20 @@ class SttService {
         }
     }
 
+    _isThemFilterEnabled() {
+        try {
+            return require('../../settings/repositories').getFilterThemAudio();
+        } catch (error) {
+            console.error('[SttService] Could not read filter setting, defaulting to on:', error.message);
+            return true;
+        }
+    }
+
+    /** Applies the speech band-pass + limiter to a "Them" PCM chunk (raw is what gets recorded). */
+    _cleanThemAudio(pcm16) {
+        return this.themFilter ? this.themFilter.process(pcm16) : pcm16;
+    }
+
     /** Recreates both STT sessions (rate-limited). Some in-flight speech may be lost. */
     async _recoverSttSessions(reason) {
         const now = Date.now();
@@ -649,7 +667,8 @@ class SttService {
             if (now - lastReportAt >= AUDIO_STATS_INTERVAL_MS) {
                 const avg = h.chunks ? (h.rmsSum / h.chunks) : 0;
                 const sinceEvent = this.lastTheirSttEventAt ? `${Math.round((now - this.lastTheirSttEventAt) / 1000)}s ago` : 'never';
-                console.log(`[SystemAudio] last ${Math.round((now - lastReportAt) / 1000)}s: chunks=${h.chunks} avgRMS=${avg.toFixed(4)} peak=${h.peak.toFixed(3)} | last "Them" STT event: ${sinceEvent}`);
+                const limited = this.themFilter ? ` limiter=${(this.themFilter.takeLimiterRatio() * 100).toFixed(1)}%` : '';
+                console.log(`[SystemAudio] last ${Math.round((now - lastReportAt) / 1000)}s: chunks=${h.chunks} avgRMS=${avg.toFixed(4)} peak=${h.peak.toFixed(3)}${limited} | last "Them" STT event: ${sinceEvent}`);
                 h.chunks = 0; h.rmsSum = 0; h.peak = 0;
                 lastReportAt = now;
             }
@@ -710,8 +729,10 @@ class SttService {
             throw new Error('STT model info could not be retrieved.');
         }
 
-        if (recordingService.isActive() && typeof data === 'string') {
-            recordingService.writeThem(Buffer.from(data, 'base64'));
+        if (typeof data === 'string') {
+            const raw = Buffer.from(data, 'base64');
+            if (recordingService.isActive()) recordingService.writeThem(raw);
+            if (this.themFilter) data = this._cleanThemAudio(raw).toString('base64');
         }
 
         let payload;
@@ -808,8 +829,8 @@ class SttService {
                 audioBuffer = audioBuffer.slice(CHUNK_SIZE);
 
                 const monoChunk = CHANNELS === 2 ? this.convertStereoToMono(chunk) : chunk;
-                const base64Data = monoChunk.toString('base64');
                 if (recordingService.isActive()) recordingService.writeThem(monoChunk);
+                const base64Data = this._cleanThemAudio(monoChunk).toString('base64');
 
                 const h = this.audioHealth;
                 if (h) {

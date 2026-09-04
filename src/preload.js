@@ -235,6 +235,8 @@ contextBridge.exposeInMainWorld('api', {
     getRecordListen: () => ipcRenderer.invoke('settings:get-record-listen'),
     setRecordListen: (isEnabled) => ipcRenderer.invoke('settings:set-record-listen', isEnabled),
     openRecordingsFolder: () => ipcRenderer.invoke('settings:open-recordings-folder'),
+    getFilterThemAudio: () => ipcRenderer.invoke('settings:get-filter-them-audio'),
+    setFilterThemAudio: (isEnabled) => ipcRenderer.invoke('settings:set-filter-them-audio', isEnabled),
     getContentProtectionStatus: () => ipcRenderer.invoke('get-content-protection-status'),
     toggleContentProtection: () => ipcRenderer.invoke('toggle-content-protection'),
     getCurrentShortcuts: () => ipcRenderer.invoke('settings:getCurrentShortcuts'),
