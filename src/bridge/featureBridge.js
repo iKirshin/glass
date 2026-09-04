@@ -131,6 +131,7 @@ module.exports = {
     ipcMain.handle('persona:delete-profile', async () => await personaService.deleteProfile());
     ipcMain.handle('persona:get-options', () => personaService.getOptions());
     ipcMain.handle('persona:import-resume-file', async () => await personaService.importResumeFile());
+    ipcMain.handle('persona:optimize-resume', async (e, payload) => await personaService.optimizeResume(payload || {}));
     ipcMain.handle('persona:open-window', () => personaService.openWindow());
     ipcMain.handle('persona:close-window', () => personaService.closeWindow());
     ipcMain.handle('model:re-initialize-state', async () => await modelStateService.initialize());

@@ -7,6 +7,8 @@ const fs = require('fs/promises');
 const path = require('path');
 const personaRepository = require('./repositories');
 const internalBridge = require('../../bridge/internalBridge');
+const modelStateService = require('../common/services/modelStateService');
+const { createLLM } = require('../common/ai/factory');
 const {
     buildPersonaPromptBlock,
     normalizeProfile,
@@ -138,6 +140,62 @@ class PersonaService {
         } catch (error) {
             console.error('[PersonaService] importResumeFile failed:', error);
             return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Condenses a résumé with the currently selected LLM: keeps roles, projects,
+     * tools, measurable results; drops boilerplate. Nothing is saved here — the UI
+     * lets the user accept or undo the result.
+     */
+    async optimizeResume({ text, targetRole = '', maxChars = 4500 } = {}) {
+        const source = String(text || '').trim();
+        if (source.length < 400) {
+            return { success: false, error: 'The résumé is already short enough to optimize.' };
+        }
+        let modelInfo = null;
+        try {
+            modelInfo = await modelStateService.getCurrentModelInfo('llm');
+        } catch (error) {
+            console.error('[PersonaService] Could not read the selected LLM:', error.message);
+        }
+        if (!modelInfo || !modelInfo.apiKey) {
+            return { success: false, error: 'No LLM configured. Add an API key or a local model first.' };
+        }
+
+        const system = `You condense résumés for use as context in live job-interview answers.
+Rewrite the résumé below so that it keeps ONLY what helps answer interview questions concretely:
+- name, current/last title, years of experience, target domain
+- each role: company, title, dates, team size/scope, 2-4 bullet achievements with numbers, tools and technologies
+- notable projects, measurable results, key skills, languages, education and certifications in one line each
+Remove: contact details, addresses, links, generic phrases ("responsible for", "motivated team player"), duplicated skills, formatting noise.
+Rules: never invent or embellish facts; keep the original language of the résumé; keep original numbers and names exactly; use compact Markdown (headings and short bullets); total length at most ${maxChars} characters. Output only the condensed résumé.`;
+
+        const userMessage = `${targetRole ? `Target role / interview context: ${targetRole}
+
+` : ''}Résumé:
+-----
+${source.slice(0, 60000)}
+-----`;
+
+        try {
+            const llm = createLLM(modelInfo.provider, {
+                apiKey: modelInfo.apiKey,
+                model: modelInfo.model,
+                temperature: 0.3,
+                maxTokens: 4096,
+            });
+            const result = await llm.chat([
+                { role: 'system', content: system },
+                { role: 'user', content: userMessage },
+            ]);
+            const optimized = cleanupText(result?.content || '');
+            if (!optimized) return { success: false, error: 'The model returned an empty result.' };
+            console.log(`[PersonaService] Résumé optimized with ${modelInfo.provider}/${modelInfo.model}: ${source.length} -> ${optimized.length} chars`);
+            return { success: true, text: optimized, before: source.length, after: optimized.length, model: modelInfo.model };
+        } catch (error) {
+            console.error('[PersonaService] optimizeResume failed:', error);
+            return { success: false, error: error.message || 'Optimization failed' };
         }
     }
 

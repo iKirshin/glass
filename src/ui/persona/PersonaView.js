@@ -71,6 +71,8 @@ export class PersonaView extends LitElement {
         options: { type: Object, state: true },
         status: { type: Object, state: true },
         busy: { type: Boolean, state: true },
+        optimizing: { type: Boolean, state: true },
+        resumeBackup: { type: String, state: true },
         dirty: { type: Boolean, state: true },
     };
 
@@ -81,6 +83,8 @@ export class PersonaView extends LitElement {
         this.status = null;
         this.busy = false;
         this.dirty = false;
+        this.optimizing = false;
+        this.resumeBackup = null; // original text kept for Undo after Optimize
     }
 
     _emptyProfile() {
@@ -163,6 +167,36 @@ export class PersonaView extends LitElement {
         }
     }
 
+    async handleOptimize() {
+        const text = this.profile.resumeText.trim();
+        if (!text || this.optimizing) return;
+        this.optimizing = true;
+        this._setStatus('Optimizing with the selected model…');
+        try {
+            const result = await window.api.personaView.optimizeResume({ text, targetRole: this.profile.targetRole });
+            if (result?.success) {
+                this.resumeBackup = text;
+                this.profile = { ...this.profile, resumeText: result.text };
+                this.dirty = true;
+                this._setStatus(`Optimized: ${result.before.toLocaleString()} → ${result.after.toLocaleString()} chars (${result.model}). Review, then Save.`, 'ok');
+            } else {
+                this._setStatus(result?.error || 'Optimization failed', 'error');
+            }
+        } catch (error) {
+            this._setStatus(error.message, 'error');
+        } finally {
+            this.optimizing = false;
+        }
+    }
+
+    handleUndoOptimize() {
+        if (this.resumeBackup === null) return;
+        this.profile = { ...this.profile, resumeText: this.resumeBackup };
+        this.resumeBackup = null;
+        this.dirty = true;
+        this._setStatus('Original résumé restored', 'ok');
+    }
+
     async handleSave() {
         this.busy = true;
         try {
@@ -172,6 +206,7 @@ export class PersonaView extends LitElement {
             });
             if (result?.success) {
                 this.dirty = false;
+                this.resumeBackup = null;
                 this._setStatus('Saved. New answers will use this profile.', 'ok');
             } else {
                 this._setStatus(result?.error || 'Save failed', 'error');
@@ -237,7 +272,10 @@ export class PersonaView extends LitElement {
                     <div class="field">
                         <div class="resume-toolbar">
                             <label>Résumé / experience</label>
-                            <button class="btn" ?disabled=${this.busy} @click=${this.handleImportFile}>Load file…</button>
+                            <button class="btn" ?disabled=${this.busy || this.optimizing} @click=${this.handleImportFile}>Load file…</button>
+                            <button class="btn" title="Condense the résumé with the selected LLM, keeping only what matters for interview answers"
+                                ?disabled=${this.busy || this.optimizing || !p.resumeText.trim()} @click=${this.handleOptimize}>${this.optimizing ? 'Optimizing…' : 'Optimize'}</button>
+                            ${this.resumeBackup !== null ? html`<button class="btn" ?disabled=${this.busy || this.optimizing} @click=${this.handleUndoOptimize}>Undo</button>` : ''}
                             <span class="resume-meta ${tooLong ? 'warn' : ''}">
                                 ${p.resumeFileName ? `${p.resumeFileName} · ` : ''}${len.toLocaleString()} / ${max.toLocaleString()} chars
                             </span>

@@ -271,6 +271,7 @@ contextBridge.exposeInMainWorld('api', {
     deleteProfile: () => ipcRenderer.invoke('persona:delete-profile'),
     getOptions: () => ipcRenderer.invoke('persona:get-options'),
     importResumeFile: () => ipcRenderer.invoke('persona:import-resume-file'),
+    optimizeResume: (payload) => ipcRenderer.invoke('persona:optimize-resume', payload),
     closeWindow: () => ipcRenderer.invoke('persona:close-window'),
   },
 
