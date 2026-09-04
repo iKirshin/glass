@@ -2,6 +2,7 @@ const { BrowserWindow } = require('electron');
 const SttService = require('./stt/sttService');
 const SummaryService = require('./summary/summaryService');
 const authService = require('../common/services/authService');
+const recordingService = require('./recordingService');
 const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
 const internalBridge = require('../../bridge/internalBridge');
@@ -139,6 +140,9 @@ class ListenService {
             this.currentSessionId = await sessionRepository.getOrCreateActive('listen');
             console.log(`[DB] New listen session ensured: ${this.currentSessionId}`);
 
+            // Record both channels for later review (WAV, can be disabled in Settings)
+            recordingService.start(this.currentSessionId);
+
             // Set session ID for summary service
             this.summaryService.setSessionId(this.currentSessionId);
             
@@ -235,6 +239,8 @@ class ListenService {
             await this.sttService.closeSessions();
 
             await this.stopMacOSAudioCapture();
+
+            recordingService.stop();
 
             // End database session
             if (this.currentSessionId) {

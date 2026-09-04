@@ -154,6 +154,10 @@ InPro runs fully locally. The Google/Firebase login, the "use Pickle's key" prox
 
 The local web dashboard (history, presets) is still bundled and served from `localhost`.
 
+### Listen session recordings
+
+Every Listen session is recorded as two WAV files (24 kHz mono): `me.wav` (microphone) and `them.wav` (system audio), under `<user data>/recordings/<timestamp>_<session>/` together with `meta.json`. Use them to re-listen to a call when transcription misbehaved. Toggle with **Record Listen Audio** in Settings; the last 20 recordings are kept. The STT service also logs audio flow every 10 s and automatically recreates the recognition sessions when sound is present but nothing is transcribed.
+
 ### Branding
 
 The app is renamed to **InPro** (`appId: com.ikirshin.inpro`), so it installs and stores its data separately from the original Glass; auto-updates point at this repository's releases. Login via the original Pickle backend is still present but optional.

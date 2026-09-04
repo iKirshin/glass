@@ -36,6 +36,16 @@ const settingsRepositoryAdapter = {
         return getBaseRepository().getAutoUpdate(uid);
     },
 
+    getRecordListen: () => {
+        const uid = authService.getCurrentUserId();
+        return getBaseRepository().getRecordListen(uid);
+    },
+
+    setRecordListen: (isEnabled) => {
+        const uid = authService.getCurrentUserId();
+        return getBaseRepository().setRecordListen(uid, isEnabled);
+    },
+
     setAutoUpdate: (isEnabled) => {
         const uid = authService.getCurrentUserId();
         return getBaseRepository().setAutoUpdate(uid, isEnabled);

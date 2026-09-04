@@ -19,14 +19,15 @@ const SESSION_RENEW_INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
 // Duration to allow the old and new sockets to run in parallel so we don't
 // miss any packets at the exact swap moment.
 const SOCKET_OVERLAP_MS = 2 * 1000; // 2 seconds
+const recordingService = require('../recordingService');
 
 // System-audio health monitoring (macOS SystemAudioDump)
 const AUDIO_STATS_INTERVAL_MS = 10 * 1000;   // periodic "is audio flowing" summary in the log
 const AUDIO_STALL_MS = 4 * 1000;             // no stdout data for this long -> capture is dead, restart it
 const AUDIO_STALL_MAX_RESTARTS = 5;
 const AUDIO_SPEECH_RMS = 0.01;               // above this the system audio clearly contains sound (int16 scaled to 1.0)
-const STT_STALL_MS = 20 * 1000;              // sound present but no STT events for this long -> recreate sessions
-const STT_STALL_MIN_INTERVAL_MS = 60 * 1000; // never recreate more often than this
+const STT_STALL_MS = 12 * 1000;              // sound present but no transcription for this long -> recreate sessions
+const STT_STALL_MIN_INTERVAL_MS = 30 * 1000; // never recreate more often than this
 
 class SttService {
     constructor() {
@@ -45,7 +46,7 @@ class SttService {
         this.systemAudioProc = null;
         this.audioHealth = null;          // stats for the current SystemAudioDump run
         this.audioHealthInterval = null;
-        this.lastTheirSttEventAt = 0;     // last VAD/transcription event received on the "Them" session
+        this.lastTheirSttEventAt = 0;     // last transcription (delta/completed) received on the "Them" session
         this.currentLanguage = 'en';
         this.lastSttStallRecoveryAt = 0;
 
@@ -564,15 +565,34 @@ class SttService {
      */
     _noteRealtimeEvent(speaker, message) {
         const type = message?.type || '';
-        if (speaker === 'Them' && (type.startsWith('input_audio_buffer.') || type.startsWith('conversation.item.input_audio_transcription.'))) {
+        if (speaker === 'Them' && (type === 'conversation.item.input_audio_transcription.delta' || type === 'conversation.item.input_audio_transcription.completed')) {
             this.lastTheirSttEventAt = Date.now();
         }
         if (type === 'conversation.item.input_audio_transcription.failed') {
             console.error(`[${speaker}] STT transcription failed:`, JSON.stringify(message.error || message));
+            this._recoverSttSessions(`${speaker} transcription failed`);
         } else if (type === 'input_audio_buffer.speech_started' || type === 'input_audio_buffer.speech_stopped') {
             console.log(`[${speaker}] STT ${type.replace('input_audio_buffer.', '')}`);
         } else if (type === 'session.updated') {
             console.log(`[${speaker}] STT session configured (${message.session?.audio?.input?.transcription?.model || 'model n/a'})`);
+        }
+    }
+
+    /** Recreates both STT sessions (rate-limited). Some in-flight speech may be lost. */
+    async _recoverSttSessions(reason) {
+        const now = Date.now();
+        if (now - this.lastSttStallRecoveryAt < STT_STALL_MIN_INTERVAL_MS) return false;
+        if (!this.isSessionActive()) return false;
+        this.lastSttStallRecoveryAt = now;
+        console.warn(`[SttService] Recreating STT sessions: ${reason}`);
+        this.onStatusUpdate?.('Restarting speech recognition…');
+        try {
+            await this.renewSessions(this.currentLanguage);
+            this.lastTheirSttEventAt = Date.now();
+            return true;
+        } catch (err) {
+            console.error('[SttService] STT recovery failed:', err.message);
+            return false;
         }
     }
 
@@ -618,15 +638,9 @@ class SttService {
             }
 
             // 2) STT stall: audio is clearly present but the "Them" session emits nothing.
-            if (h.loudSince && now - h.loudSince > STT_STALL_MS && now - this.lastTheirSttEventAt > STT_STALL_MS
-                && now - this.lastSttStallRecoveryAt > STT_STALL_MIN_INTERVAL_MS) {
-                console.warn(`[SttService] System audio has sound for ${Math.round((now - h.loudSince) / 1000)}s but no "Them" STT events — recreating STT sessions.`);
-                this.lastSttStallRecoveryAt = now;
-                h.loudSince = now;
-                try {
-                    await this.renewSessions(language);
-                } catch (err) {
-                    console.error('[SttService] STT stall recovery failed:', err.message);
+            if (h.loudSince && now - h.loudSince > STT_STALL_MS && now - this.lastTheirSttEventAt > STT_STALL_MS) {
+                if (await this._recoverSttSessions(`system audio has sound for ${Math.round((now - h.loudSince) / 1000)}s but no "Them" transcription`)) {
+                    h.loudSince = now;
                 }
                 return;
             }
@@ -667,6 +681,10 @@ class SttService {
             throw new Error('STT model info could not be retrieved.');
         }
 
+        if (recordingService.isActive() && typeof data === 'string') {
+            recordingService.writeMe(Buffer.from(data, 'base64'));
+        }
+
         let payload;
         if (modelInfo.provider === 'gemini') {
             payload = { audio: { data, mimeType: mimeType || 'audio/pcm;rate=24000' } };
@@ -690,6 +708,10 @@ class SttService {
         }
         if (!modelInfo) {
             throw new Error('STT model info could not be retrieved.');
+        }
+
+        if (recordingService.isActive() && typeof data === 'string') {
+            recordingService.writeThem(Buffer.from(data, 'base64'));
         }
 
         let payload;
@@ -787,6 +809,7 @@ class SttService {
 
                 const monoChunk = CHANNELS === 2 ? this.convertStereoToMono(chunk) : chunk;
                 const base64Data = monoChunk.toString('base64');
+                if (recordingService.isActive()) recordingService.writeThem(monoChunk);
 
                 const h = this.audioHealth;
                 if (h) {

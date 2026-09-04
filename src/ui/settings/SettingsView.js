@@ -525,6 +525,7 @@ export class SettingsView extends LitElement {
         shortcuts: { type: Object, state: true },
         firebaseUser: { type: Object, state: true },
         personaSummary: { type: Object, state: true },
+        recordListenEnabled: { type: Boolean, state: true },
         isLoading: { type: Boolean, state: true },
         isContentProtectionOn: { type: Boolean, state: true },
         saving: { type: Boolean, state: true },
@@ -556,6 +557,7 @@ export class SettingsView extends LitElement {
         this.shortcuts = {};
         this.firebaseUser = null;
         this.personaSummary = null;
+        this.recordListenEnabled = true;
         this._personaListener = () => this.loadPersonaSummary();
         this.apiKeys = { openai: '', gemini: '', anthropic: '', whisper: '' };
         this.providerConfig = {};
@@ -597,6 +599,29 @@ export class SettingsView extends LitElement {
         }
         this.autoUpdateLoading = false;
         this.requestUpdate();
+    }
+
+    async loadRecordListenSetting() {
+        if (!window.api?.settingsView?.getRecordListen) return;
+        try {
+            this.recordListenEnabled = await window.api.settingsView.getRecordListen();
+        } catch (e) {
+            console.error('Error loading record-listen setting:', e);
+        }
+    }
+
+    async handleToggleRecordListen() {
+        if (!window.api) return;
+        const newValue = !this.recordListenEnabled;
+        const result = await window.api.settingsView.setRecordListen(newValue);
+        if (result?.success) this.recordListenEnabled = newValue;
+        this.requestUpdate();
+    }
+
+    async handleOpenRecordings() {
+        if (!window.api) return;
+        const result = await window.api.settingsView.openRecordingsFolder();
+        if (!result?.success) alert(`Could not open recordings folder: ${result?.error || 'unknown error'}`);
     }
 
     async handleToggleAutoUpdate() {
@@ -655,6 +680,7 @@ export class SettingsView extends LitElement {
         if (!window.api) return;
         this.isLoading = true;
         this.loadPersonaSummary();
+        this.loadRecordListenSetting();
         try {
             // Load essential data first
             const [userState, modelSettings, presets, contentProtection, shortcuts] = await Promise.all([
@@ -1571,6 +1597,12 @@ export class SettingsView extends LitElement {
                 <div class="buttons-section">
                     <button class="settings-button full-width" @click=${this.handlePersonalize}>
                         <span>Personalize / Meeting Notes</span>
+                    </button>
+                    <button class="settings-button full-width" @click=${this.handleToggleRecordListen} title="Save both audio channels (you and the other side) as WAV files for every Listen session">
+                        <span>Record Listen Audio: ${this.recordListenEnabled ? 'On' : 'Off'}</span>
+                    </button>
+                    <button class="settings-button full-width" @click=${this.handleOpenRecordings}>
+                        <span>Open Recordings Folder</span>
                     </button>
                     <button class="settings-button full-width" @click=${this.handleToggleAutoUpdate} ?disabled=${this.autoUpdateLoading}>
                         <span>Automatic Updates: ${this.autoUpdateEnabled ? 'On' : 'Off'}</span>

@@ -135,7 +135,36 @@ function setAutoUpdate(uid, isEnabled) {
     }
 }
 
+function getRecordListen(uid) {
+    const db = sqliteClient.getDb();
+    try {
+        const row = db.prepare('SELECT record_listen_sessions FROM users WHERE uid = ?').get(uid);
+        if (!row || row.record_listen_sessions === null || row.record_listen_sessions === undefined) return true;
+        return row.record_listen_sessions === 1;
+    } catch (err) {
+        console.error('SQLite: Failed to get record-listen setting:', err);
+        return true;
+    }
+}
+
+function setRecordListen(uid, isEnabled) {
+    const db = sqliteClient.getDb();
+    try {
+        const result = db.prepare('UPDATE users SET record_listen_sessions = ? WHERE uid = ?').run(isEnabled ? 1 : 0, uid);
+        if (result.changes === 0) {
+            db.prepare('INSERT OR IGNORE INTO users (uid, display_name, email, created_at, record_listen_sessions) VALUES (?, ?, ?, ?, ?)')
+              .run(uid, 'Local User', '', Math.floor(Date.now() / 1000), isEnabled ? 1 : 0);
+        }
+        return true;
+    } catch (err) {
+        console.error('SQLite: Failed to set record-listen setting:', err);
+        throw err;
+    }
+}
+
 module.exports = {
+    getRecordListen,
+    setRecordListen,
     getPresets,
     getPresetTemplates,
     createPreset,

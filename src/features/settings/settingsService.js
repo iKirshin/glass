@@ -410,6 +410,20 @@ async function getAutoUpdateSetting() {
     }
 }
 
+async function getRecordListenSetting() {
+    try { return settingsRepository.getRecordListen(); }
+    catch (error) { console.error('[SettingsService] Error getting record-listen setting:', error); return true; }
+}
+
+async function setRecordListenSetting(isEnabled) {
+    try { await settingsRepository.setRecordListen(isEnabled); return { success: true }; }
+    catch (error) { console.error('[SettingsService] Error setting record-listen setting:', error); return { success: false, error: error.message }; }
+}
+
+async function openRecordingsFolder() {
+    return require('../listen/recordingService').openFolder();
+}
+
 async function setAutoUpdateSetting(isEnabled) {
     try {
         await settingsRepository.setAutoUpdate(isEnabled);
@@ -458,6 +472,9 @@ module.exports = {
     setAutoUpdateSetting,
     // Model settings facade
     getModelSettings,
+    getRecordListenSetting,
+    setRecordListenSetting,
+    openRecordingsFolder,
     clearApiKey,
     setSelectedModel,
     // Ollama facade
