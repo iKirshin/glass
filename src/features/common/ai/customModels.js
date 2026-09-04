@@ -17,7 +17,7 @@ const path = require('path');
 const FILE_NAME = 'custom-models.json';
 const MODEL_LIST_KEYS = { llm: 'llmModels', stt: 'sttModels' };
 // Local providers manage their own model catalogs.
-const UNSUPPORTED_PROVIDERS = new Set(['ollama', 'whisper', 'openai-glass']);
+const UNSUPPORTED_PROVIDERS = new Set(['ollama', 'whisper']);
 
 function getFilePath() {
     const { app } = require('electron');

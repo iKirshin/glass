@@ -1,5 +1,4 @@
 const sqliteRepository = require('./sqlite.repository');
-const firebaseRepository = require('./firebase.repository');
 
 let authService = null;
 
@@ -7,16 +6,8 @@ function setAuthService(service) {
     authService = service;
 }
 
+// Local mode: SQLite is the only storage backend.
 function getBaseRepository() {
-    if (!authService) {
-        // Fallback or error if authService is not set, to prevent crashes.
-        // During initial load, it might not be set, so we default to sqlite.
-        return sqliteRepository;
-    }
-    const user = authService.getCurrentUser();
-    if (user && user.isLoggedIn) {
-        return firebaseRepository;
-    }
     return sqliteRepository;
 }
 

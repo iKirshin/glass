@@ -1,5 +1,6 @@
 const { BrowserWindow } = require('electron');
 const { createStreamingLLM } = require('../common/ai/factory');
+const personaService = require('../persona/personaService');
 // Lazy require helper to avoid circular dependency issues
 const getWindowManager = () => require('../../window/windowManager');
 const internalBridge = require('../../bridge/internalBridge');
@@ -254,7 +255,9 @@ class AskService {
 
             const conversationHistory = this._formatConversationForPrompt(conversationHistoryRaw);
 
-            const systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false);
+            const personaBlock = await personaService.getPromptBlock();
+            if (personaBlock) console.log('[AskService] Persona profile applied to system prompt');
+            const systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false, personaBlock);
 
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -278,8 +281,6 @@ class AskService {
                 model: modelInfo.model,
                 temperature: 0.7,
                 maxTokens: 2048,
-                usePortkey: modelInfo.provider === 'openai-glass',
-                portkeyVirtualKey: modelInfo.provider === 'openai-glass' ? modelInfo.apiKey : undefined,
             });
 
             try {

@@ -14,8 +14,6 @@ contextBridge.exposeInMainWorld('api', {
   common: {
     // User & Auth
     getCurrentUser: () => ipcRenderer.invoke('get-current-user'),
-    startFirebaseAuth: () => ipcRenderer.invoke('start-firebase-auth'),
-    firebaseLogout: () => ipcRenderer.invoke('firebase-logout'),
     
     // App Control
       quitApplication: () => ipcRenderer.invoke('quit-application'),
@@ -203,8 +201,6 @@ contextBridge.exposeInMainWorld('api', {
     // User & Auth
     getCurrentUser: () => ipcRenderer.invoke('get-current-user'),
     openPersonalizePage: () => ipcRenderer.invoke('open-personalize-page'),
-    firebaseLogout: () => ipcRenderer.invoke('firebase-logout'),
-    startFirebaseAuth: () => ipcRenderer.invoke('start-firebase-auth'),
 
     // Model & Provider Management
     getModelSettings: () => ipcRenderer.invoke('settings:get-model-settings'), // Facade call
@@ -219,6 +215,7 @@ contextBridge.exposeInMainWorld('api', {
     addCustomModel: (data) => ipcRenderer.invoke('model:add-custom-model', data),
     removeCustomModel: (data) => ipcRenderer.invoke('model:remove-custom-model', data),
     getCustomModelsPath: () => ipcRenderer.invoke('model:get-custom-models-path'),
+    openPersonaWindow: () => ipcRenderer.invoke('persona:open-window'),
     
     // Ollama Management
     getOllamaStatus: () => ipcRenderer.invoke('ollama:get-status'),
@@ -263,6 +260,16 @@ contextBridge.exposeInMainWorld('api', {
     removeOnLocalAIInstallProgress: (callback) => ipcRenderer.removeListener('localai:install-progress', callback),
     onLocalAIInstallationComplete: (callback) => ipcRenderer.on('localai:installation-complete', callback),
     removeOnLocalAIInstallationComplete: (callback) => ipcRenderer.removeListener('localai:installation-complete', callback)
+  },
+
+  // src/ui/persona/PersonaView.js
+  personaView: {
+    getProfile: () => ipcRenderer.invoke('persona:get-profile'),
+    saveProfile: (profile) => ipcRenderer.invoke('persona:save-profile', profile),
+    deleteProfile: () => ipcRenderer.invoke('persona:delete-profile'),
+    getOptions: () => ipcRenderer.invoke('persona:get-options'),
+    importResumeFile: () => ipcRenderer.invoke('persona:import-resume-file'),
+    closeWindow: () => ipcRenderer.invoke('persona:close-window'),
   },
 
   // src/ui/settings/ShortCutSettingsView.js

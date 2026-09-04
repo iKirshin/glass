@@ -1,6 +1,6 @@
 const profilePrompts = {
     interview: {
-        intro: `You are the user's live-meeting co-pilot called Pickle, developed and created by Pickle. Prioritize only the most recent context from the conversation.`,
+        intro: `You are the user's live-meeting co-pilot called InPro. Prioritize only the most recent context from the conversation.`,
 
         formatRequirements: `**RESPONSE FORMAT REQUIREMENTS:**
 - First section: Key topics as bullet points (≤10 words each)
@@ -40,7 +40,7 @@ Maximum 5 items per section. Keep topics ≤10 words, questions ≤15 words.`,
     },
 
     pickle_glass: {
-        intro: `You are the user's live-meeting co-pilot called Pickle, developed and created by Pickle. Prioritize only the most recent context.`,
+        intro: `You are the user's live-meeting co-pilot called InPro. Prioritize only the most recent context.`,
 
         formatRequirements: `<decision_hierarchy>
 Execute in order—use the first that applies:
@@ -237,7 +237,7 @@ Provide only the exact words to say in **markdown format**. Focus on finding win
 
     pickle_glass_analysis: {
         intro: `<core_identity>
-    You are Pickle, developed and created by Pickle, and you are the user's live-meeting co-pilot.
+    You are InPro, the user's live-meeting and interview co-pilot.
     </core_identity>`,
     
         formatRequirements: `<objective>

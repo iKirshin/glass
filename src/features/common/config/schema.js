@@ -102,6 +102,22 @@ const LATEST_SCHEMA = {
         ],
         constraints: ['PRIMARY KEY (provider)']
     },
+    persona_profile: {
+        columns: [
+            { name: 'uid', type: 'TEXT PRIMARY KEY' },
+            { name: 'enabled', type: 'INTEGER DEFAULT 1' },
+            { name: 'display_name', type: 'TEXT' },
+            { name: 'target_role', type: 'TEXT' },
+            { name: 'resume_text', type: 'TEXT' },
+            { name: 'resume_file_name', type: 'TEXT' },
+            { name: 'competence_mode', type: 'TEXT DEFAULT \'balanced\'' },
+            { name: 'expertise_notes', type: 'TEXT' },
+            { name: 'language_level', type: 'TEXT DEFAULT \'native\'' },
+            { name: 'answer_language', type: 'TEXT' },
+            { name: 'extra_instructions', type: 'TEXT' },
+            { name: 'updated_at', type: 'INTEGER' }
+        ]
+    },
     shortcuts: {
         columns: [
             { name: 'action', type: 'TEXT PRIMARY KEY' },

@@ -5,6 +5,7 @@ const authService = require('../features/common/services/authService');
 const whisperService = require('../features/common/services/whisperService');
 const ollamaService = require('../features/common/services/ollamaService');
 const modelStateService = require('../features/common/services/modelStateService');
+const personaService = require('../features/persona/personaService');
 const shortcutsService = require('../features/shortcuts/shortcutsService');
 const presetRepository = require('../features/common/repositories/preset');
 const localAIManager = require('../features/common/services/localAIManager');
@@ -50,8 +51,6 @@ module.exports = {
 
     // User/Auth
     ipcMain.handle('get-current-user', () => authService.getCurrentUser());
-    ipcMain.handle('start-firebase-auth', async () => await authService.startFirebaseAuthFlow());
-    ipcMain.handle('firebase-logout', async () => await authService.signOut());
 
     // App
     ipcMain.handle('quit-application', () => app.quit());
@@ -121,6 +120,18 @@ module.exports = {
     ipcMain.handle('model:add-custom-model', async (e, payload) => await modelStateService.handleAddCustomModel(payload));
     ipcMain.handle('model:remove-custom-model', async (e, payload) => await modelStateService.handleRemoveCustomModel(payload));
     ipcMain.handle('model:get-custom-models-path', () => modelStateService.getCustomModelsFilePath());
+
+    // Persona (résumé / competence / language level)
+    ipcMain.handle('persona:get-profile', async () => await personaService.getProfile());
+    ipcMain.handle('persona:save-profile', async (e, profile) => {
+        try { return { success: true, profile: await personaService.saveProfile(profile) }; }
+        catch (error) { console.error('[FeatureBridge] persona:save-profile failed:', error); return { success: false, error: error.message }; }
+    });
+    ipcMain.handle('persona:delete-profile', async () => await personaService.deleteProfile());
+    ipcMain.handle('persona:get-options', () => personaService.getOptions());
+    ipcMain.handle('persona:import-resume-file', async () => await personaService.importResumeFile());
+    ipcMain.handle('persona:open-window', () => personaService.openWindow());
+    ipcMain.handle('persona:close-window', () => personaService.closeWindow());
     ipcMain.handle('model:re-initialize-state', async () => await modelStateService.initialize());
 
     // LocalAIManager 이벤트를 모든 윈도우에 브로드캐스트

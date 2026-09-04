@@ -125,9 +125,40 @@ We have a list of [help wanted](https://github.com/pickle-com/glass/issues?q=is%
 - Jul 8: Now support Windows(beta), Improved AEC by Rust(to seperate mic/system audio), shortcut editing(beta)
 - Jul 8: Now support Local LLM & STT, Firebase Data Storage 
 
-## 🍴 About this fork (iKirshin/glass)
+## 🍴 About this fork — InPro (iKirshin/glass)
 
-This fork of [pickle-com/glass](https://github.com/pickle-com/glass) focuses on making it easy to plug in new AI models.
+**InPro (Interview Provider)** is a fork of [pickle-com/glass](https://github.com/pickle-com/glass) that turns the live-meeting co-pilot into a personal interview assistant: answers are generated *as you would say them*, based on your real résumé, within your real competence, at your real language level. It also makes it easy to plug in new AI models.
+
+### Your profile & résumé
+
+Settings → **My Profile & Résumé** opens a window where you can:
+
+- **Load your résumé** as text or from a file (PDF, DOCX, TXT, Markdown). Answers then use your real roles, projects, tools and results as examples ("At Acme I…").
+- **Set competence boundaries**:
+  - *Strict* — only your real experience; on unfamiliar questions the answer admits the limit and reasons it through like a person would, instead of sounding omniscient.
+  - *Balanced* (default) — your experience plus general professional knowledge, honest about depth.
+  - *Open* — full knowledge, résumé used for examples.
+  - Plus free-text notes about what you do and do not know.
+- **Pick a language level (CEFR)**: native, C2, C1, B2, B1, A2. The wording of answers is adapted to that level (vocabulary, sentence length, natural non-native phrasing) so it sounds like you speaking, and optionally a fixed answer language.
+- Add extra instructions (answer length, style, things to avoid).
+
+The profile is stored locally in the app database (`persona_profile` table) and is injected into the system prompt of the *Ask* feature only when enabled. Prompt text lives in [`src/features/common/prompts/personaPrompt.js`](src/features/common/prompts/personaPrompt.js).
+
+### Local mode (no cloud account)
+
+InPro runs fully locally. The Google/Firebase login, the "use Pickle's key" proxy (Portkey) and the Firestore sync that existed in upstream Glass are removed:
+
+- there is always one local user; API keys, sessions, transcripts, presets and the persona profile live in the local SQLite database;
+- AI requests go directly from your machine to the provider you configured (OpenAI, Anthropic, Gemini, Deepgram) or to local Ollama / Whisper;
+- no telemetry, no account, nothing leaves the device except the requests to the AI providers you chose.
+
+The local web dashboard (history, presets) is still bundled and served from `localhost`.
+
+### Branding
+
+The app is renamed to **InPro** (`appId: com.ikirshin.inpro`), so it installs and stores its data separately from the original Glass; auto-updates point at this repository's releases. Login via the original Pickle backend is still present but optional.
+
+### Plugging in new AI models
 
 **What changed**
 

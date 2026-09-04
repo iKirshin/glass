@@ -146,10 +146,8 @@ class HeaderTransitionManager {
 
     // WelcomeHeader 콜백 메서드들
     async handleLoginOption() {
-        console.log('[HeaderController] Login option selected');
-        if (window.api) {
-            await window.api.common.startFirebaseAuth();
-        }
+        // Local mode: there is no cloud login, fall through to API key setup.
+        await this.handleApiKeyOption();
     }
 
     async handleApiKeyOption() {
