@@ -32,7 +32,9 @@ export class ShortcutSettingsView extends LitElement {
         .close-button:hover{background:rgba(255,255,255,.2);color:rgba(255,255,255,.9);}
 
         .title{font-size:14px;font-weight:500;margin:0 0 8px;padding-bottom:8px;
-            border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
+            border-bottom:1px solid rgba(255,255,255,.1);text-align:center;
+            -webkit-app-region:drag;cursor:move;}
+        .close-button{-webkit-app-region:no-drag;}
 
         .scroll-area{flex:1 1 auto;overflow-y:auto;margin:0 -4px;padding:4px;}
 

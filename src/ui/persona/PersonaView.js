@@ -17,10 +17,13 @@ export class PersonaView extends LitElement {
             color:rgba(255,255,255,.7);display:grid;place-items:center;
             font-size:14px;line-height:0;cursor:pointer;transition:.15s;z-index:10;}
         .close-button:hover{background:rgba(255,255,255,.2);color:rgba(255,255,255,.9);}
+        .close-button{-webkit-app-region:no-drag;}
 
         .title{font-size:14px;font-weight:500;margin:0 0 4px;padding-bottom:8px;
-            border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
-        .subtitle{font-size:11px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:8px;}
+            border-bottom:1px solid rgba(255,255,255,.1);text-align:center;
+            -webkit-app-region:drag;cursor:move;user-select:none;}
+        .subtitle{font-size:11px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:8px;
+            -webkit-app-region:drag;cursor:move;user-select:none;}
 
         .scroll-area{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -4px;padding:4px;display:flex;flex-direction:column;gap:10px;}
 
@@ -55,7 +58,8 @@ export class PersonaView extends LitElement {
         .btn[disabled]{opacity:.5;cursor:default;}
 
         .footer{flex:0 0 auto;display:flex;gap:6px;align-items:center;padding-top:8px;margin-top:4px;
-            border-top:1px solid rgba(255,255,255,.1);}
+            border-top:1px solid rgba(255,255,255,.1);-webkit-app-region:drag;}
+        .footer .btn, .footer .status{-webkit-app-region:no-drag;}
         .footer .spacer{flex:1;}
         .status{font-size:11px;color:rgba(255,255,255,.6);}
         .status.ok{color:rgba(120,220,140,.95);}
