@@ -1,15 +1,15 @@
 # electron-builder.yml
 
 # The unique application ID
-appId: com.pickle.glass
+appId: com.ikirshin.inpro
 
 # The user-facing application name
-productName: Glass
+productName: InPro
 
 # Publish configuration for GitHub releases
 publish:
     provider: github
-    owner: pickle-com
+    owner: iKirshin
     repo: glass
     releaseType: draft
 

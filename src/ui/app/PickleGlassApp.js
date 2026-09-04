@@ -3,6 +3,7 @@ import { SettingsView } from '../settings/SettingsView.js';
 import { ListenView } from '../listen/ListenView.js';
 import { AskView } from '../ask/AskView.js';
 import { ShortcutSettingsView } from '../settings/ShortCutSettingsView.js';
+import { PersonaView } from '../persona/PersonaView.js';
 
 import '../listen/audioCore/renderer.js';
 
@@ -146,6 +147,8 @@ export class PickleGlassApp extends LitElement {
                 ></settings-view>`;
             case 'shortcut-settings':
                 return html`<shortcut-settings-view></shortcut-settings-view>`;
+            case 'persona':
+                return html`<persona-view></persona-view>`;
             case 'history':
                 return html`<history-view></history-view>`;
             case 'help':

@@ -555,7 +555,6 @@ export class SettingsView extends LitElement {
         // Whisper related
         this.whisperModels = [];
         this.whisperProgressTracker = null; // Will be initialized when needed
-        this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this)
         this.autoUpdateEnabled = true;
         this.autoUpdateLoading = true;
         this.loadInitialData();
@@ -910,7 +909,7 @@ export class SettingsView extends LitElement {
     
     // Providers that accept user-defined model ids (local providers manage their own catalogs).
     getCustomModelProviders(type) {
-        const excluded = new Set(['ollama', 'whisper', 'openai-glass']);
+        const excluded = new Set(['ollama', 'whisper']);
         return Object.entries(this.providerConfig)
             .filter(([id]) => !excluded.has(id) && !!this.apiKeys[id])
             .filter(([, config]) => type === 'llm' ? config.llmModels !== undefined : config.sttModels !== undefined)
@@ -988,17 +987,8 @@ export class SettingsView extends LitElement {
     }
 
 
-    handleUsePicklesKey(e) {
-        e.preventDefault()
-        if (this.wasJustDragged) return
-    
-        console.log("Requesting Firebase authentication from main process...")
-        window.api.settingsView.startFirebaseAuth();
-    }
-    //////// after_modelStateService ////////
-
-    openShortcutEditor() {
-        window.api.settingsView.openShortcutSettingsWindow();
+    openPersonaWindow() {
+        window.api.settingsView.openPersonaWindow();
     }
 
     connectedCallback() {
@@ -1233,11 +1223,6 @@ export class SettingsView extends LitElement {
         window.api.settingsView.quitApplication();
     }
 
-    handleFirebaseLogout() {
-        console.log('Firebase Logout clicked');
-        window.api.settingsView.firebaseLogout();
-    }
-
     async handleOllamaShutdown() {
         console.log('[SettingsView] Shutting down Ollama service...');
         
@@ -1343,7 +1328,7 @@ export class SettingsView extends LitElement {
                         <div class="provider-key-group">
                             <label for="key-input-${id}">${config.name} API Key</label>
                             <input type="password" id="key-input-${id}"
-                                placeholder=${loggedIn ? "Using Pickle's Key" : `Enter ${config.name} API Key`} 
+                                placeholder=${`Enter ${config.name} API Key`}
                                 .value=${this.apiKeys[id] || ''}
                             >
                             <div class="key-buttons">
@@ -1447,12 +1432,9 @@ export class SettingsView extends LitElement {
             <div class="settings-container">
                 <div class="header-section">
                     <div>
-                        <h1 class="app-title">Pickle Glass</h1>
+                        <h1 class="app-title">InPro</h1>
                         <div class="account-info">
-                            ${this.firebaseUser
-                                ? html`Account: ${this.firebaseUser.email || 'Logged In'}`
-                                : `Account: Not Logged In`
-                            }
+                            Local mode · data stays on this device
                         </div>
                     </div>
                     <div class="invisibility-icon ${this.isContentProtectionOn ? 'visible' : ''}" title="Invisibility is On">
@@ -1465,7 +1447,10 @@ export class SettingsView extends LitElement {
                 ${apiKeyManagementHTML}
                 ${modelSelectionHTML}
 
-                <div class="buttons-section" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px; margin-top: 6px;">
+                <div class="buttons-section" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                    <button class="settings-button full-width" @click=${this.openPersonaWindow}>
+                        My Profile &amp; Résumé
+                    </button>
                     <button class="settings-button full-width" @click=${this.openShortcutEditor}>
                         Edit Shortcuts
                     </button>
@@ -1534,19 +1519,7 @@ export class SettingsView extends LitElement {
                     </button>
                     
                     <div class="bottom-buttons">
-                        ${this.firebaseUser
-                            ? html`
-                                <button class="settings-button half-width danger" @click=${this.handleFirebaseLogout}>
-                                    <span>Logout</span>
-                                </button>
-                                `
-                            : html`
-                                <button class="settings-button half-width" @click=${this.handleUsePicklesKey}>
-                                    <span>Login</span>
-                                </button>
-                                `
-                        }
-                        <button class="settings-button half-width danger" @click=${this.handleQuit}>
+                        <button class="settings-button full-width danger" @click=${this.handleQuit}>
                             <span>Quit</span>
                         </button>
                     </div>

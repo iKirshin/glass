@@ -219,9 +219,9 @@ class WindowLayoutManager {
         return layout;
     }
     
-    calculateShortcutSettingsWindowPosition() {
+    calculateShortcutSettingsWindowPosition(windowName = 'shortcut-settings') {
         const header = this.windowPool.get('header');
-        const shortcutSettings = this.windowPool.get('shortcut-settings');
+        const shortcutSettings = this.windowPool.get(windowName);
         if (!header || !shortcutSettings) return null;
     
         const headerBounds = header.getBounds();

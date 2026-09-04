@@ -324,10 +324,9 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
     }
 
 
-    if (name === 'shortcut-settings') {
+    if (name === 'shortcut-settings' || name === 'persona') {
         if (shouldBeVisible) {
-            // layoutManager.positionShortcutSettingsWindow();
-            const newBounds = layoutManager.calculateShortcutSettingsWindowPosition();
+            const newBounds = layoutManager.calculateShortcutSettingsWindowPosition(name);
             if (newBounds) win.setBounds(newBounds);
             
             if (process.platform === 'darwin') {
@@ -556,6 +555,44 @@ function createFeatureWindows(header, namesToCreate) {
                 break;
             }
 
+            case 'persona': {
+                const personaWin = new BrowserWindow({
+                    ...commonChildOptions,
+                    width: 480,
+                    height: 760,
+                    modal: false,
+                    parent: undefined,
+                    alwaysOnTop: true,
+                    titleBarOverlay: false,
+                });
+
+                personaWin.setContentProtection(isContentProtectionOn);
+                personaWin.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
+                if (process.platform === 'darwin') {
+                    personaWin.setWindowButtonVisibility(false);
+                }
+
+                const personaLoadOptions = { query: { view: 'persona' } };
+                if (!shouldUseLiquidGlass) {
+                    personaWin.loadFile(path.join(__dirname, '../ui/app/content.html'), personaLoadOptions);
+                } else {
+                    personaLoadOptions.query.glass = 'true';
+                    personaWin.loadFile(path.join(__dirname, '../ui/app/content.html'), personaLoadOptions);
+                    personaWin.webContents.once('did-finish-load', () => {
+                        const viewId = liquidGlass.addView(personaWin.getNativeWindowHandle());
+                        if (viewId !== -1) {
+                            liquidGlass.unstable_setVariant(viewId, liquidGlass.GlassMaterialVariant.bubbles);
+                        }
+                    });
+                }
+
+                windowPool.set('persona', personaWin);
+                if (!app.isPackaged) {
+                    personaWin.webContents.openDevTools({ mode: 'detach' });
+                }
+                break;
+            }
+
             case 'shortcut-settings': {
                 const shortcutEditor = new BrowserWindow({
                     ...commonChildOptions,
@@ -609,7 +646,7 @@ function createFeatureWindows(header, namesToCreate) {
 }
 
 function destroyFeatureWindows() {
-    const featureWindows = ['listen','ask','settings','shortcut-settings'];
+    const featureWindows = ['listen','ask','settings','shortcut-settings','persona'];
     if (settingsHideTimer) {
         clearTimeout(settingsHideTimer);
         settingsHideTimer = null;
@@ -716,7 +753,7 @@ function createWindows() {
     setupWindowController(windowPool, layoutManager, movementManager);
 
     if (currentHeaderState === 'main') {
-        createFeatureWindows(header, ['listen', 'ask', 'settings', 'shortcut-settings']);
+        createFeatureWindows(header, ['listen', 'ask', 'settings', 'shortcut-settings', 'persona']);
     }
 
     header.setContentProtection(isContentProtectionOn);
