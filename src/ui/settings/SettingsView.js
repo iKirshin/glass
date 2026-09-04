@@ -1030,18 +1030,15 @@ export class SettingsView extends LitElement {
         }
     }
 
-    // Formats list pricing per 1K tokens (LLM) or per minute of audio (STT).
+    // Formats list pricing per 1M tokens (LLM, in / out) or per minute of audio (STT).
     formatModelPricing(model) {
         const p = model?.pricing;
         if (!p) return '';
         if (p.free) return 'free · local';
         if (p.perMinute !== undefined) return `$${p.perMinute}/min`;
         if (p.input !== undefined) {
-            const fmt = (perMillion) => {
-                const v = perMillion / 1000;
-                return '$' + (v >= 0.01 ? v.toFixed(3) : v.toFixed(4)).replace(/0+$/, '').replace(/\.$/, '');
-            };
-            return `${fmt(p.input)} / ${fmt(p.output)} per 1K tok`;
+            const fmt = (v) => '$' + (Number.isInteger(v) ? v : String(v));
+            return `${fmt(p.input)} / ${fmt(p.output)} per 1M tok`;
         }
         return '';
     }
