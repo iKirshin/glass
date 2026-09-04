@@ -1,6 +1,7 @@
 const { EventEmitter } = require('events');
 const Store = require('electron-store');
 const { PROVIDERS, getProviderClass } = require('../ai/factory');
+const customModels = require('../ai/customModels');
 const encryptionService = require('./encryptionService');
 const providerSettingsRepository = require('../repositories/providerSettings');
 const authService = require('./authService');
@@ -15,6 +16,12 @@ class ModelStateService extends EventEmitter {
     }
 
     async initialize() {
+        // Register user-defined models (custom-models.json) before anything reads PROVIDERS.
+        try {
+            customModels.applyCustomModels(PROVIDERS);
+        } catch (error) {
+            console.error('[ModelStateService] Failed to apply custom models:', error);
+        }
         console.log('[ModelStateService] Initializing one-time setup...');
         await this._initializeEncryption();
         await this._runMigrations();
@@ -383,6 +390,42 @@ class ModelStateService extends EventEmitter {
         }
     }
 
+    /**
+     * Registers a user-defined model for an API-based provider and, when the provider
+     * already has an API key, selects it right away.
+     */
+    async addCustomModel({ provider, type, modelId, name }) {
+        const model = customModels.addCustomModel(PROVIDERS, { provider, type, id: modelId, name });
+        console.log(`[ModelStateService] Added custom ${type} model '${model.id}' for provider '${provider}'`);
+
+        const setting = await providerSettingsRepository.getByProvider(provider);
+        let selected = false;
+        if (setting?.api_key) {
+            selected = await this.setSelectedModel(type, model.id);
+        } else {
+            this.emit('settings-updated');
+        }
+        return { success: true, model, selected };
+    }
+
+    async removeCustomModel({ provider, type, modelId }) {
+        const removed = customModels.removeCustomModel(PROVIDERS, { provider, type, id: modelId });
+        if (removed) {
+            console.log(`[ModelStateService] Removed custom ${type} model '${modelId}' from provider '${provider}'`);
+            const selected = await this.getSelectedModels();
+            if (selected[type] === modelId) {
+                await this._autoSelectAvailableModels([type]);
+            }
+            this.emit('state-updated', await this.getLiveState());
+            this.emit('settings-updated');
+        }
+        return { success: removed };
+    }
+
+    getCustomModelsFilePath() {
+        return customModels.getFilePath();
+    }
+
     getProviderConfig() {
         const config = {};
         for (const key in PROVIDERS) {
@@ -404,6 +447,24 @@ class ModelStateService extends EventEmitter {
     }
 
     /*-------------- Compatibility Helpers --------------*/
+    async handleAddCustomModel(payload) {
+        try {
+            return await this.addCustomModel(payload || {});
+        } catch (error) {
+            console.error('[ModelStateService] addCustomModel failed:', error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async handleRemoveCustomModel(payload) {
+        try {
+            return await this.removeCustomModel(payload || {});
+        } catch (error) {
+            console.error('[ModelStateService] removeCustomModel failed:', error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
     async handleValidateKey(provider, key) {
         return await this.setApiKey(provider, key);
     }

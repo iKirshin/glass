@@ -1,5 +1,38 @@
 const { Anthropic } = require("@anthropic-ai/sdk")
 
+const DEFAULT_MODEL = "claude-opus-5"
+
+// Claude Opus 4.7+ / Sonnet 5 / Opus 5 / Fable reject sampling params (temperature,
+// top_p, top_k). Only older generations still accept them.
+const TEMPERATURE_SUPPORTED_RE = /claude-3|claude-haiku-4-5|claude-(opus|sonnet)-4-[0-6]/
+
+function supportsTemperature(model) {
+  return TEMPERATURE_SUPPORTED_RE.test(model || "")
+}
+
+/** Builds a messages.create() payload that is valid for every current Claude model. */
+function buildMessageParams({ model, maxTokens, temperature, systemPrompt, messages, stream = false }) {
+  const params = {
+    model,
+    max_tokens: maxTokens,
+    system: systemPrompt || undefined,
+    messages,
+  }
+  if (supportsTemperature(model) && typeof temperature === "number") {
+    params.temperature = temperature
+  }
+  if (stream) params.stream = true
+  return params
+}
+
+/** Newer models may return thinking blocks before text; concatenate only text blocks. */
+function extractText(response) {
+  return (response.content || [])
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("")
+}
+
 class AnthropicProvider {
     static async validateApiKey(key) {
         if (!key || typeof key !== 'string' || !key.startsWith('sk-ant-')) {
@@ -15,7 +48,7 @@ class AnthropicProvider {
                     "anthropic-version": "2023-06-01",
                 },
                 body: JSON.stringify({
-                    model: "claude-3-haiku-20240307",
+                    model: "claude-haiku-4-5",
                     max_tokens: 1,
                     messages: [{ role: "user", content: "Hi" }],
                 }),
@@ -63,12 +96,12 @@ async function createSTT({ apiKey, language = "en", callbacks = {}, ...config })
  * Creates an Anthropic LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
- * @param {string} [opts.model='claude-3-5-sonnet-20241022'] - Model name
+ * @param {string} [opts.model='claude-opus-5'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} LLM instance
  */
-function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature = 0.7, maxTokens = 4096, ...config }) {
+function createLLM({ apiKey, model = DEFAULT_MODEL, temperature = 0.7, maxTokens = 4096, ...config }) {
   const client = new Anthropic({ apiKey })
 
   return {
@@ -101,17 +134,13 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
       }
 
       try {
-        const response = await client.messages.create({
-          model: model,
-          max_tokens: maxTokens,
-          temperature: temperature,
-          system: systemPrompt || undefined,
-          messages: messages,
-        })
+        const response = await client.messages.create(
+          buildMessageParams({ model, maxTokens, temperature, systemPrompt, messages }),
+        )
 
         return {
           response: {
-            text: () => response.content[0].text,
+            text: () => extractText(response),
           },
           raw: response,
         }
@@ -168,16 +197,12 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
         }
       }
 
-      const response = await client.messages.create({
-        model: model,
-        max_tokens: maxTokens,
-        temperature: temperature,
-        system: systemPrompt || undefined,
-        messages: anthropicMessages,
-      })
+      const response = await client.messages.create(
+        buildMessageParams({ model, maxTokens, temperature, systemPrompt, messages: anthropicMessages }),
+      )
 
       return {
-        content: response.content[0].text,
+        content: extractText(response),
         raw: response,
       }
     },
@@ -188,14 +213,14 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
  * Creates an Anthropic streaming LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
- * @param {string} [opts.model='claude-3-5-sonnet-20241022'] - Model name
+ * @param {string} [opts.model='claude-opus-5'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} Streaming LLM instance
  */
 function createStreamingLLM({
   apiKey,
-  model = "claude-3-5-sonnet-20241022",
+  model = DEFAULT_MODEL,
   temperature = 0.7,
   maxTokens = 4096,
   ...config
@@ -263,14 +288,9 @@ function createStreamingLLM({
             let totalContent = ""
 
             // Stream the response
-            const stream = await client.messages.create({
-              model: model,
-              max_tokens: maxTokens,
-              temperature: temperature,
-              system: systemPrompt || undefined,
-              messages: anthropicMessages,
-              stream: true,
-            })
+            const stream = await client.messages.create(
+              buildMessageParams({ model, maxTokens, temperature, systemPrompt, messages: anthropicMessages, stream: true }),
+            )
 
             for await (const chunk of stream) {
               if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {

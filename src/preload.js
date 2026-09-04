@@ -216,6 +216,9 @@ contextBridge.exposeInMainWorld('api', {
     saveApiKey: (key) => ipcRenderer.invoke('model:save-api-key', key),
     removeApiKey: (provider) => ipcRenderer.invoke('model:remove-api-key', provider),
     setSelectedModel: (data) => ipcRenderer.invoke('model:set-selected-model', data),
+    addCustomModel: (data) => ipcRenderer.invoke('model:add-custom-model', data),
+    removeCustomModel: (data) => ipcRenderer.invoke('model:remove-custom-model', data),
+    getCustomModelsPath: () => ipcRenderer.invoke('model:get-custom-models-path'),
     
     // Ollama Management
     getOllamaStatus: () => ipcRenderer.invoke('ollama:get-status'),
