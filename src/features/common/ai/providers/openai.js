@@ -168,12 +168,12 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, model = 'gpt
  * Creates an OpenAI LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - OpenAI API key
- * @param {string} [opts.model='gpt-4.1'] - Model name
+ * @param {string} [opts.model='gpt-5.6'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=2048] - Max tokens
  * @returns {object} LLM instance
  */
-function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2048, ...config }) {
+function createLLM({ apiKey, model = 'gpt-5.6', temperature = 0.7, maxTokens = 2048, ...config }) {
   const client = new OpenAI({ apiKey });
 
   const callApi = async (messages) => {
@@ -231,12 +231,12 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
  * Creates an OpenAI streaming LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - OpenAI API key
- * @param {string} [opts.model='gpt-4.1'] - Model name
+ * @param {string} [opts.model='gpt-5.6'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=2048] - Max tokens
  * @returns {object} Streaming LLM instance
  */
-function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2048, ...config }) {
+function createStreamingLLM({ apiKey, model = 'gpt-5.6', temperature = 0.7, maxTokens = 2048, ...config }) {
   return {
     streamChat: async (messages) => {
       const fetchUrl = 'https://api.openai.com/v1/chat/completions';

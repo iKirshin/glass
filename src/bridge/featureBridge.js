@@ -6,6 +6,7 @@ const whisperService = require('../features/common/services/whisperService');
 const ollamaService = require('../features/common/services/ollamaService');
 const modelStateService = require('../features/common/services/modelStateService');
 const personaService = require('../features/persona/personaService');
+const internalBridge = require('./internalBridge');
 const shortcutsService = require('../features/shortcuts/shortcutsService');
 const presetRepository = require('../features/common/repositories/preset');
 const localAIManager = require('../features/common/services/localAIManager');
@@ -192,6 +193,14 @@ module.exports = {
         }
       });
     });
+    internalBridge.on('persona:updated', (profile) => {
+      BrowserWindow.getAllWindows().forEach(win => {
+        if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+          win.webContents.send('persona:updated', profile ? { enabled: profile.enabled, has_resume: !!profile.resume_text } : null);
+        }
+      });
+    });
+
     modelStateService.on('settings-updated', () => {
       BrowserWindow.getAllWindows().forEach(win => {
         if (win && !win.isDestroyed()) {

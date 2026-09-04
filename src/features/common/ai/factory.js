@@ -22,7 +22,6 @@ const PROVIDERS = {
       name: 'OpenAI',
       handler: () => require("./providers/openai"),
       llmModels: [
-          { id: 'gpt-4.1', name: 'GPT-4.1' },
           { id: 'gpt-5.6', name: 'GPT-5.6' },
           { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra' },
           { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' },
@@ -37,8 +36,6 @@ const PROVIDERS = {
       name: 'Gemini',
       handler: () => require("./providers/gemini"),
       llmModels: [
-          { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-          { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
           { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash' },
           { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (preview)' },
       ],

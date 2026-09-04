@@ -559,7 +559,7 @@ function createFeatureWindows(header, namesToCreate) {
                 const personaWin = new BrowserWindow({
                     ...commonChildOptions,
                     width: 480,
-                    height: 760,
+                    height: 800,
                     modal: false,
                     parent: undefined,
                     alwaysOnTop: true,
@@ -642,6 +642,7 @@ function createFeatureWindows(header, namesToCreate) {
         createFeatureWindow('ask');
         createFeatureWindow('settings');
         createFeatureWindow('shortcut-settings');
+        createFeatureWindow('persona');
     }
 }
 

@@ -378,6 +378,22 @@ export class SettingsView extends LitElement {
             flex-direction: column;
             gap: 10px;
         }
+        .profile-card {
+            border: 1px solid rgba(0, 122, 255, 0.55); background: rgba(0, 122, 255, 0.12);
+            border-radius: 6px; padding: 7px 8px; cursor: pointer; transition: background .15s;
+            display: flex; flex-direction: column; gap: 3px;
+        }
+        .profile-card:hover { background: rgba(0, 122, 255, 0.22); }
+        .profile-card.active { border-color: rgba(120, 220, 140, 0.6); background: rgba(120, 220, 140, 0.10); }
+        .profile-card.active:hover { background: rgba(120, 220, 140, 0.18); }
+        .profile-card-row { display: flex; justify-content: space-between; align-items: center; }
+        .profile-card-title { font-size: 12px; font-weight: 600; color: white; }
+        .profile-card-badge {
+            font-size: 9px; font-weight: 600; letter-spacing: .3px; padding: 1px 5px; border-radius: 3px;
+            background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+        }
+        .profile-card.active .profile-card-badge { background: rgba(120, 220, 140, 0.3); }
+        .profile-card-status { font-size: 10px; color: rgba(255,255,255,0.65); line-height: 1.3; }
         .provider-key-group, .model-select-group {
             display: flex;
             flex-direction: column;
@@ -504,6 +520,7 @@ export class SettingsView extends LitElement {
     static properties = {
         shortcuts: { type: Object, state: true },
         firebaseUser: { type: Object, state: true },
+        personaSummary: { type: Object, state: true },
         isLoading: { type: Boolean, state: true },
         isContentProtectionOn: { type: Boolean, state: true },
         saving: { type: Boolean, state: true },
@@ -534,6 +551,8 @@ export class SettingsView extends LitElement {
         //////// after_modelStateService ////////
         this.shortcuts = {};
         this.firebaseUser = null;
+        this.personaSummary = null;
+        this._personaListener = () => this.loadPersonaSummary();
         this.apiKeys = { openai: '', gemini: '', anthropic: '', whisper: '' };
         this.providerConfig = {};
         this.isLoading = true;
@@ -631,6 +650,7 @@ export class SettingsView extends LitElement {
     async loadInitialData() {
         if (!window.api) return;
         this.isLoading = true;
+        this.loadPersonaSummary();
         try {
             // Load essential data first
             const [userState, modelSettings, presets, contentProtection, shortcuts] = await Promise.all([
@@ -991,6 +1011,34 @@ export class SettingsView extends LitElement {
         window.api.settingsView.openPersonaWindow();
     }
 
+    async loadPersonaSummary() {
+        if (!window.api?.personaView) return;
+        try {
+            const p = await window.api.personaView.getProfile();
+            this.personaSummary = p ? {
+                enabled: p.enabled === null || p.enabled === undefined ? true : !!p.enabled,
+                hasResume: !!(p.resume_text && p.resume_text.trim()),
+                mode: p.competence_mode || 'balanced',
+                level: p.language_level || 'native',
+            } : null;
+        } catch (error) {
+            console.error('[SettingsView] Failed to load persona summary:', error);
+        }
+    }
+
+    getPersonaStatusText() {
+        const s = this.personaSummary;
+        if (!s || (!s.hasResume && s.level === 'native' && s.mode === 'balanced')) {
+            return 'Add your résumé, competence limits and language level (B1/B2/C1) so answers sound like you.';
+        }
+        const parts = [
+            s.hasResume ? 'Résumé loaded' : 'No résumé',
+            `${s.mode} mode`,
+            s.level === 'native' ? 'native level' : `level ${s.level}`,
+        ];
+        return (s.enabled ? '' : 'Disabled · ') + parts.join(' · ');
+    }
+
     connectedCallback() {
         super.connectedCallback();
         
@@ -1072,6 +1120,7 @@ export class SettingsView extends LitElement {
         };
         
         window.api.settingsView.onUserStateChanged(this._userStateListener);
+        window.api.settingsView.onPersonaUpdated?.(this._personaListener);
         window.api.settingsView.onSettingsUpdated(this._settingsUpdatedListener);
         window.api.settingsView.onPresetsUpdated(this._presetsUpdatedListener);
         window.api.settingsView.onShortcutsUpdated(this._shortcutListener);
@@ -1444,13 +1493,18 @@ export class SettingsView extends LitElement {
                     </div>
                 </div>
 
+                <div class="profile-card ${this.personaSummary?.enabled && this.personaSummary?.hasResume ? 'active' : ''}" @click=${this.openPersonaWindow} title="Résumé, competence boundaries, language level">
+                    <div class="profile-card-row">
+                        <span class="profile-card-title">My Profile &amp; Résumé</span>
+                        <span class="profile-card-badge">${this.personaSummary?.enabled && this.personaSummary?.hasResume ? 'ON' : 'SET UP'}</span>
+                    </div>
+                    <div class="profile-card-status">${this.getPersonaStatusText()}</div>
+                </div>
+
                 ${apiKeyManagementHTML}
                 ${modelSelectionHTML}
 
                 <div class="buttons-section" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
-                    <button class="settings-button full-width" @click=${this.openPersonaWindow}>
-                        My Profile &amp; Résumé
-                    </button>
                     <button class="settings-button full-width" @click=${this.openShortcutEditor}>
                         Edit Shortcuts
                     </button>

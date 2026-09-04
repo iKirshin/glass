@@ -22,7 +22,7 @@ export class PersonaView extends LitElement {
             border-bottom:1px solid rgba(255,255,255,.1);text-align:center;}
         .subtitle{font-size:11px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:8px;}
 
-        .scroll-area{flex:1 1 auto;overflow-y:auto;margin:0 -4px;padding:4px;display:flex;flex-direction:column;gap:10px;}
+        .scroll-area{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -4px;padding:4px;display:flex;flex-direction:column;gap:10px;}
 
         .field{display:flex;flex-direction:column;gap:4px;}
         .row{display:flex;gap:8px;}
@@ -36,7 +36,7 @@ export class PersonaView extends LitElement {
         input[type=text]:focus, select:focus, textarea:focus{border-color:rgba(0,122,255,.7);}
         select option{background:#222;color:white;}
         textarea{resize:vertical;min-height:64px;line-height:1.4;font-family:inherit;}
-        textarea.resume{min-height:180px;font-size:11.5px;}
+        textarea.resume{min-height:140px;font-size:11.5px;}
 
         .toggle{display:flex;align-items:center;gap:8px;font-size:12px;}
         .toggle input{width:14px;height:14px;}
@@ -54,7 +54,7 @@ export class PersonaView extends LitElement {
         .btn.danger:hover{background:rgba(255,59,48,.35);}
         .btn[disabled]{opacity:.5;cursor:default;}
 
-        .footer{display:flex;gap:6px;align-items:center;padding-top:8px;margin-top:4px;
+        .footer{flex:0 0 auto;display:flex;gap:6px;align-items:center;padding-top:8px;margin-top:4px;
             border-top:1px solid rgba(255,255,255,.1);}
         .footer .spacer{flex:1;}
         .status{font-size:11px;color:rgba(255,255,255,.6);}

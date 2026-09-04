@@ -162,7 +162,7 @@ The app is renamed to **InPro** (`appId: com.ikirshin.inpro`), so it installs an
 
 **What changed**
 
-- Updated built-in model catalog: OpenAI GPT-5.6 family, Claude Opus 5 / Sonnet 5 / Haiku 4.5, Gemini 2.5 Pro / 3.x, extra STT models.
+- Built-in LLM catalog contains only current models: OpenAI GPT-5.6 family, Claude Opus 5 / Sonnet 5 / Haiku 4.5, Gemini 3.8 Flash / 3.1 Pro. Older ones (GPT-4.1, Gemini 2.5) can still be added as custom models.
 - Providers now handle the newer model families correctly (reasoning models use `max_completion_tokens` and no `temperature`; Claude 4.7+ models omit sampling params; text is extracted from text blocks only).
 - **Custom models**: any model id can be registered for an API-based provider without code changes.
 
