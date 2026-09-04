@@ -27,8 +27,14 @@ const AUDIO_STATS_INTERVAL_MS = 10 * 1000;   // periodic "is audio flowing" summ
 const AUDIO_STALL_MS = 4 * 1000;             // no stdout data for this long -> capture is dead, restart it
 const AUDIO_STALL_MAX_RESTARTS = 5;
 const AUDIO_SPEECH_RMS = 0.01;               // above this the system audio clearly contains sound (int16 scaled to 1.0)
-const STT_STALL_MS = 3 * 1000;               // sound present but no transcription for this long -> recreate sessions
+const STT_AFTER_STOP_MS = 5 * 1000;          // speech_stopped seen but no transcript within this -> stalled session
+const STT_STUCK_SPEECH_MS = 25 * 1000;       // speech_started with no speech_stopped for this long -> stuck VAD
+const STT_DEAD_MS = 15 * 1000;               // sound present but no VAD events at all -> dead session
 const STT_STALL_MIN_INTERVAL_MS = 15 * 1000; // never recreate more often than this
+const MIC_GATE_WHILE_THEM_SPEAKS = true;     // half-duplex: drop mic audio while the other side is talking (kills speaker echo)
+const MIC_GATE_HANGOVER_MS = 400;
+const ECHO_WINDOW_MS = 20 * 1000;            // a "Me" transcript that repeats a recent "Them" line is speaker echo
+const ECHO_OVERLAP_RATIO = 0.6;
 
 class SttService {
     constructor() {
@@ -48,6 +54,13 @@ class SttService {
         this.audioHealth = null;          // stats for the current SystemAudioDump run
         this.audioHealthInterval = null;
         this.lastTheirSttEventAt = 0;     // last transcription (delta/completed) received on the "Them" session
+        this.lastTheirVadAt = 0;          // last VAD event on the "Them" session
+        this.theirSpeechStartedAt = 0;
+        this.theirSpeechStoppedAt = 0;
+        this.themActiveUntil = 0;         // mic gate: other side is producing sound until this time
+        this.recentTheirTexts = [];       // for echo detection: [{ text, at }]
+        this.gatedMicChunks = 0;
+        this.droppedEchoes = 0;
         this.currentLanguage = 'en';
         this.themFilter = null;           // speech band-pass + limiter for the "Them" channel (null = off)
         this.lastSttStallRecoveryAt = 0;
@@ -90,8 +103,9 @@ class SttService {
     }
 
     flushMyCompletion() {
-        const finalText = (this.myCompletionBuffer + this.myCurrentUtterance).trim();
-        if (!this.modelInfo || !finalText) return;
+        const rawText = (this.myCompletionBuffer + this.myCurrentUtterance).trim();
+        const finalText = this._filterTranscript('Me', rawText);
+        if (!this.modelInfo || !finalText) { this.myCompletionBuffer = ''; this.myCurrentUtterance = ''; this.myCompletionTimer = null; return; }
 
         // Notify completion callback
         if (this.onTranscriptionComplete) {
@@ -117,8 +131,9 @@ class SttService {
     }
 
     flushTheirCompletion() {
-        const finalText = (this.theirCompletionBuffer + this.theirCurrentUtterance).trim();
-        if (!this.modelInfo || !finalText) return;
+        const rawText = (this.theirCompletionBuffer + this.theirCurrentUtterance).trim();
+        const finalText = this._filterTranscript('Them', rawText);
+        if (!this.modelInfo || !finalText) { this.theirCompletionBuffer = ''; this.theirCurrentUtterance = ''; this.theirCompletionTimer = null; return; }
         
         // Notify completion callback
         if (this.onTranscriptionComplete) {
@@ -477,6 +492,7 @@ class SttService {
         
         const sttOptions = {
             apiKey: this.modelInfo.apiKey,
+            model: this.modelInfo.model,
             language: effectiveLanguage,
         };
 
@@ -569,8 +585,15 @@ class SttService {
      */
     _noteRealtimeEvent(speaker, message) {
         const type = message?.type || '';
-        if (speaker === 'Them' && (type === 'conversation.item.input_audio_transcription.delta' || type === 'conversation.item.input_audio_transcription.completed')) {
-            this.lastTheirSttEventAt = Date.now();
+        if (speaker === 'Them') {
+            const now = Date.now();
+            if (type === 'conversation.item.input_audio_transcription.delta' || type === 'conversation.item.input_audio_transcription.completed') {
+                this.lastTheirSttEventAt = now;
+            } else if (type === 'input_audio_buffer.speech_started') {
+                this.lastTheirVadAt = now; this.theirSpeechStartedAt = now;
+            } else if (type === 'input_audio_buffer.speech_stopped' || type === 'input_audio_buffer.committed') {
+                this.lastTheirVadAt = now; this.theirSpeechStoppedAt = now;
+            }
         }
         if (type === 'conversation.item.input_audio_transcription.failed') {
             console.error(`[${speaker}] STT transcription failed:`, JSON.stringify(message.error || message));
@@ -607,11 +630,62 @@ class SttService {
         try {
             await this.renewSessions(this.currentLanguage);
             this.lastTheirSttEventAt = Date.now();
+            this.theirSpeechStartedAt = 0; this.theirSpeechStoppedAt = 0;
             return true;
         } catch (err) {
             console.error('[SttService] STT recovery failed:', err.message);
             return false;
         }
+    }
+
+    _noteThemActivity(pcm16Buffer) {
+        if (this._computeRms(pcm16Buffer) > AUDIO_SPEECH_RMS) {
+            this.themActiveUntil = Date.now() + MIC_GATE_HANGOVER_MS;
+        }
+    }
+
+    /**
+     * Drops transcripts that are speaker echo (a "Me" line repeating what "Them" just
+     * said) or known transcription junk. Returns the cleaned text or '' to drop.
+     */
+    _filterTranscript(speaker, text) {
+        let cleaned = String(text || '')
+            .replace(/context:\s*#+[\s#]*/gi, ' ')   // prompt-like hallucination seen on echo/noise
+            .replace(/#{2,}/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!cleaned) return '';
+        const letters = (cleaned.match(/\p{L}/gu) || []).length;
+        if (letters < 2) return '';
+        if ((this.currentLanguage || 'en').startsWith('en') && !/[A-Za-z]/.test(cleaned)) {
+            console.log(`[SttService] Dropped non-English junk from ${speaker}: "${cleaned}"`);
+            return '';
+        }
+
+        const now = Date.now();
+        if (speaker === 'Them') {
+            this.recentTheirTexts.push({ text: cleaned, at: now });
+            this.recentTheirTexts = this.recentTheirTexts.filter(t => now - t.at < ECHO_WINDOW_MS * 2).slice(-8);
+            return cleaned;
+        }
+
+        // "Me": compare against recent "Them" lines
+        const tokens = (t) => new Set(t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 2));
+        const mine = tokens(cleaned);
+        if (mine.size >= 3) {
+            for (const recent of this.recentTheirTexts) {
+                if (now - recent.at > ECHO_WINDOW_MS) continue;
+                const theirs = tokens(recent.text);
+                let hit = 0;
+                for (const w of mine) if (theirs.has(w)) hit++;
+                if (hit / mine.size >= ECHO_OVERLAP_RATIO) {
+                    this.droppedEchoes++;
+                    console.log(`[SttService] Dropped speaker echo from Me (${Math.round(hit / mine.size * 100)}% overlap): "${cleaned}"`);
+                    return '';
+                }
+            }
+        }
+        return cleaned;
     }
 
     _computeRms(pcm16Buffer) {
@@ -655,10 +729,24 @@ class SttService {
                 return;
             }
 
-            // 2) STT stall: audio is clearly present but the "Them" session emits nothing.
-            if (h.loudSince && now - h.loudSince > STT_STALL_MS && now - this.lastTheirSttEventAt > STT_STALL_MS) {
-                if (await this._recoverSttSessions(`system audio has sound for ${Math.round((now - h.loudSince) / 1000)}s but no "Them" transcription`)) {
+            // 2) STT stall detection, based on the provider's own VAD signals so that a long
+            //    sentence in progress is never mistaken for a failure:
+            //    a) speech ended but no transcript followed within STT_AFTER_STOP_MS;
+            //    b) speech "started" and never stopped for STT_STUCK_SPEECH_MS (stuck VAD);
+            //    c) sound present for STT_DEAD_MS with no VAD events at all (dead session).
+            const stopped = this.theirSpeechStoppedAt, started = this.theirSpeechStartedAt;
+            let stallReason = null;
+            if (stopped && stopped >= started && now - stopped > STT_AFTER_STOP_MS && this.lastTheirSttEventAt < stopped) {
+                stallReason = `speech ended ${Math.round((now - stopped) / 1000)}s ago without a transcript`;
+            } else if (started && started > stopped && now - started > STT_STUCK_SPEECH_MS) {
+                stallReason = `speech_started ${Math.round((now - started) / 1000)}s ago and never stopped`;
+            } else if (h.loudSince && now - h.loudSince > STT_DEAD_MS && this.lastTheirVadAt < h.loudSince && this.lastTheirSttEventAt < h.loudSince) {
+                stallReason = `sound for ${Math.round((now - h.loudSince) / 1000)}s but no VAD or transcript events`;
+            }
+            if (stallReason) {
+                if (await this._recoverSttSessions(stallReason)) {
                     h.loudSince = now;
+                    this.theirSpeechStartedAt = 0; this.theirSpeechStoppedAt = 0;
                 }
                 return;
             }
@@ -668,7 +756,8 @@ class SttService {
                 const avg = h.chunks ? (h.rmsSum / h.chunks) : 0;
                 const sinceEvent = this.lastTheirSttEventAt ? `${Math.round((now - this.lastTheirSttEventAt) / 1000)}s ago` : 'never';
                 const limited = this.themFilter ? ` limiter=${(this.themFilter.takeLimiterRatio() * 100).toFixed(1)}%` : '';
-                console.log(`[SystemAudio] last ${Math.round((now - lastReportAt) / 1000)}s: chunks=${h.chunks} avgRMS=${avg.toFixed(4)} peak=${h.peak.toFixed(3)}${limited} | last "Them" STT event: ${sinceEvent}`);
+                const gate = ` micGated=${this.gatedMicChunks} echoesDropped=${this.droppedEchoes}`; this.gatedMicChunks = 0; this.droppedEchoes = 0;
+                console.log(`[SystemAudio] last ${Math.round((now - lastReportAt) / 1000)}s: chunks=${h.chunks} avgRMS=${avg.toFixed(4)} peak=${h.peak.toFixed(3)}${limited}${gate} | last "Them" STT event: ${sinceEvent}`);
                 h.chunks = 0; h.rmsSum = 0; h.peak = 0;
                 lastReportAt = now;
             }
@@ -704,6 +793,13 @@ class SttService {
             recordingService.writeMe(Buffer.from(data, 'base64'));
         }
 
+        // Half-duplex gate: while the other side is producing sound, the mic mostly
+        // carries their voice from the speakers (echo). Drop it instead of transcribing.
+        if (MIC_GATE_WHILE_THEM_SPEAKS && Date.now() < this.themActiveUntil) {
+            this.gatedMicChunks++;
+            return;
+        }
+
         let payload;
         if (modelInfo.provider === 'gemini') {
             payload = { audio: { data, mimeType: mimeType || 'audio/pcm;rate=24000' } };
@@ -732,6 +828,7 @@ class SttService {
         if (typeof data === 'string') {
             const raw = Buffer.from(data, 'base64');
             if (recordingService.isActive()) recordingService.writeThem(raw);
+            this._noteThemActivity(raw);
             if (this.themFilter) data = this._cleanThemAudio(raw).toString('base64');
         }
 
@@ -835,6 +932,7 @@ class SttService {
                 const h = this.audioHealth;
                 if (h) {
                     const rms = this._computeRms(monoChunk);
+                    if (rms > AUDIO_SPEECH_RMS) this.themActiveUntil = Date.now() + MIC_GATE_HANGOVER_MS;
                     h.lastDataAt = Date.now();
                     h.chunks += 1;
                     h.rmsSum += rms;
@@ -956,6 +1054,8 @@ class SttService {
 
         // Reset state
         this.lastTheirSttEventAt = 0;
+        this.lastTheirVadAt = 0; this.theirSpeechStartedAt = 0; this.theirSpeechStoppedAt = 0;
+        this.themActiveUntil = 0; this.recentTheirTexts = [];
         this.myCurrentUtterance = '';
         this.theirCurrentUtterance = '';
         this.myCompletionBuffer = '';
