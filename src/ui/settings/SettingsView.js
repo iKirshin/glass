@@ -1038,7 +1038,7 @@ export class SettingsView extends LitElement {
         if (p.perMinute !== undefined) return `$${p.perMinute}/min`;
         if (p.input !== undefined) {
             const fmt = (v) => '$' + (Number.isInteger(v) ? v : String(v));
-            return `${fmt(p.input)} / ${fmt(p.output)} per 1M tok`;
+            return `${fmt(p.input)} / ${fmt(p.output)} per 1M`;
         }
         return '';
     }
