@@ -432,6 +432,10 @@ export class SettingsView extends LitElement {
         }
         .model-item:hover { background-color: rgba(255,255,255,0.1); }
         .model-item.selected { background-color: rgba(0, 122, 255, 0.4); font-weight: 500; }
+        .model-price {
+            font-size: 9px; color: rgba(255,255,255,0.55); white-space: nowrap; margin-left: 8px;
+        }
+        .model-item.selected .model-price { color: rgba(255,255,255,0.8); }
         .model-badge {
             font-size: 9px; margin-left: 6px; padding: 1px 4px; border-radius: 3px;
             background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); font-weight: 400;
@@ -1026,6 +1030,22 @@ export class SettingsView extends LitElement {
         }
     }
 
+    // Formats list pricing per 1K tokens (LLM) or per minute of audio (STT).
+    formatModelPricing(model) {
+        const p = model?.pricing;
+        if (!p) return '';
+        if (p.free) return 'free · local';
+        if (p.perMinute !== undefined) return `$${p.perMinute}/min`;
+        if (p.input !== undefined) {
+            const fmt = (perMillion) => {
+                const v = perMillion / 1000;
+                return '$' + (v >= 0.01 ? v.toFixed(3) : v.toFixed(4)).replace(/0+$/, '').replace(/\.$/, '');
+            };
+            return `${fmt(p.input)} / ${fmt(p.output)} per 1K tok`;
+        }
+        return '';
+    }
+
     getPersonaStatusText() {
         const s = this.personaSummary;
         if (!s || (!s.hasResume && s.level === 'native' && s.mode === 'balanced')) {
@@ -1414,7 +1434,7 @@ export class SettingsView extends LitElement {
                                 return html`
                                     <div class="model-item ${this.selectedLlm === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('llm', model.id)}>
-                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}</span>
+                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}${this.formatModelPricing(model) ? html`<span class="model-price" title="List price, in / out">${this.formatModelPricing(model)}</span>` : ''}</span>
                                         ${model.custom ? html`<button class="model-remove" title="Remove custom model"
                                             @click=${(e) => { e.stopPropagation(); this.handleRemoveCustomModel('llm', model.id); }}>✕</button>` : ''}
                                         ${isOllama ? html`
@@ -1453,7 +1473,7 @@ export class SettingsView extends LitElement {
                                 return html`
                                     <div class="model-item ${this.selectedStt === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('stt', model.id)}>
-                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}</span>
+                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}${this.formatModelPricing(model) ? html`<span class="model-price" title="List price, in / out">${this.formatModelPricing(model)}</span>` : ''}</span>
                                         ${model.custom ? html`<button class="model-remove" title="Remove custom model"
                                             @click=${(e) => { e.stopPropagation(); this.handleRemoveCustomModel('stt', model.id); }}>✕</button>` : ''}
                                         ${isWhisper ? html`
