@@ -64,10 +64,10 @@ class OpenAIProvider {
  * @returns {Promise<object>} STT session
  */
 async function createSTT({ apiKey, language = 'en', callbacks = {}, model = 'gpt-4o-mini-transcribe', ...config }) {
+  // GA Realtime API (the beta shape and the "OpenAI-Beta: realtime=v1" header were retired).
   const wsUrl = 'wss://api.openai.com/v1/realtime?intent=transcription';
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
-    'OpenAI-Beta': 'realtime=v1',
   };
 
   const ws = new WebSocket(wsUrl, { headers });
@@ -76,25 +76,29 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, model = 'gpt
     ws.onopen = () => {
       console.log("WebSocket session opened.");
 
+      // GA transcription session shape (session.type = "transcription").
       const sessionConfig = {
-        type: 'transcription_session.update',
+        type: 'session.update',
         session: {
-          input_audio_format: 'pcm16',
-          input_audio_transcription: {
-            model: model,
-            prompt: config.prompt || '',
-            language: language || 'en'
+          type: 'transcription',
+          audio: {
+            input: {
+              format: { type: 'audio/pcm', rate: 24000 },
+              transcription: {
+                model: model,
+                prompt: config.prompt || '',
+                language: language || 'en',
+              },
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.5,
+                prefix_padding_ms: 200,
+                silence_duration_ms: 100,
+              },
+              noise_reduction: { type: 'near_field' },
+            },
           },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.5,
-            prefix_padding_ms: 200,
-            silence_duration_ms: 100,
-          },
-          input_audio_noise_reduction: {
-            type: 'near_field'
-          }
-        }
+        },
       };
       
       ws.send(JSON.stringify(sessionConfig));
