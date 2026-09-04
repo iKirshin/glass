@@ -26,8 +26,8 @@ const AUDIO_STATS_INTERVAL_MS = 10 * 1000;   // periodic "is audio flowing" summ
 const AUDIO_STALL_MS = 4 * 1000;             // no stdout data for this long -> capture is dead, restart it
 const AUDIO_STALL_MAX_RESTARTS = 5;
 const AUDIO_SPEECH_RMS = 0.01;               // above this the system audio clearly contains sound (int16 scaled to 1.0)
-const STT_STALL_MS = 12 * 1000;              // sound present but no transcription for this long -> recreate sessions
-const STT_STALL_MIN_INTERVAL_MS = 30 * 1000; // never recreate more often than this
+const STT_STALL_MS = 3 * 1000;               // sound present but no transcription for this long -> recreate sessions
+const STT_STALL_MIN_INTERVAL_MS = 15 * 1000; // never recreate more often than this
 
 class SttService {
     constructor() {
@@ -653,7 +653,7 @@ class SttService {
                 h.chunks = 0; h.rmsSum = 0; h.peak = 0;
                 lastReportAt = now;
             }
-        }, 2000);
+        }, 1000);
     }
 
     _stopAudioHealthMonitor() {
