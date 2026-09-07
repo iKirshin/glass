@@ -61,6 +61,9 @@ class SttService {
         this.recentTheirTexts = [];       // for echo detection: [{ text, at }]
         this.gatedMicChunks = 0;
         this.droppedEchoes = 0;
+        this.micChunks = 0;               // mic chunks received since the last [SystemAudio] report
+        this.micBytes = 0;
+        this.micRateWarned = false;
         this.currentLanguage = 'en';
         this.themFilter = null;           // speech band-pass + limiter for the "Them" channel (null = off)
         this.lastSttStallRecoveryAt = 0;
@@ -756,7 +759,15 @@ class SttService {
                 const avg = h.chunks ? (h.rmsSum / h.chunks) : 0;
                 const sinceEvent = this.lastTheirSttEventAt ? `${Math.round((now - this.lastTheirSttEventAt) / 1000)}s ago` : 'never';
                 const limited = this.themFilter ? ` limiter=${(this.themFilter.takeLimiterRatio() * 100).toFixed(1)}%` : '';
-                const gate = ` micGated=${this.gatedMicChunks} echoesDropped=${this.droppedEchoes}`; this.gatedMicChunks = 0; this.droppedEchoes = 0;
+                const elapsedS = (now - lastReportAt) / 1000;
+                const micSecPerSec = (this.micBytes / (24000 * 2)) / elapsedS;   // seconds of mic audio per wall-clock second (expect ~1.0)
+                const gate = ` mic=${this.micChunks}ch(${micSecPerSec.toFixed(2)}x) micGated=${this.gatedMicChunks} echoesDropped=${this.droppedEchoes}`;
+                if (micSecPerSec > 1.5 && !this.micRateWarned) {
+                    this.micRateWarned = true;
+                    console.error(`[SttService] Microphone delivers ${micSecPerSec.toFixed(2)}x realtime audio: a duplicate capture pipeline or a sample-rate mismatch in the renderer. Transcription of "Me" will stutter until Listen is restarted.`);
+                    this.onStatusUpdate?.('Mic audio doubled — restart Listen');
+                }
+                this.micChunks = 0; this.micBytes = 0; this.gatedMicChunks = 0; this.droppedEchoes = 0;
                 console.log(`[SystemAudio] last ${Math.round((now - lastReportAt) / 1000)}s: chunks=${h.chunks} avgRMS=${avg.toFixed(4)} peak=${h.peak.toFixed(3)}${limited}${gate} | last "Them" STT event: ${sinceEvent}`);
                 h.chunks = 0; h.rmsSum = 0; h.peak = 0;
                 lastReportAt = now;
@@ -777,8 +788,10 @@ class SttService {
         // const isGemini = provider === 'gemini';
         
         if (!this.mySttSession) {
-            throw new Error('User STT session not active');
+            // The renderer keeps streaming for a moment after Stop; not an error worth logging.
+            return;
         }
+        if (typeof data === 'string') { this.micChunks++; this.micBytes += Math.floor(data.length * 3 / 4); }
 
         let modelInfo = this.modelInfo;
         if (!modelInfo) {
@@ -795,9 +808,11 @@ class SttService {
 
         // Half-duplex gate: while the other side is producing sound, the mic mostly
         // carries their voice from the speakers (echo). Drop it instead of transcribing.
-        if (MIC_GATE_WHILE_THEM_SPEAKS && Date.now() < this.themActiveUntil) {
+        if (MIC_GATE_WHILE_THEM_SPEAKS && Date.now() < this.themActiveUntil && typeof data === 'string') {
+            // Replace with silence of the same length instead of dropping: a gap in the
+            // stream makes the recognizer stutter ("I I I") on the next real words.
             this.gatedMicChunks++;
-            return;
+            data = Buffer.alloc(Math.floor(data.length * 3 / 4)).toString('base64');
         }
 
         let payload;
@@ -1056,6 +1071,7 @@ class SttService {
         this.lastTheirSttEventAt = 0;
         this.lastTheirVadAt = 0; this.theirSpeechStartedAt = 0; this.theirSpeechStoppedAt = 0;
         this.themActiveUntil = 0; this.recentTheirTexts = [];
+        this.micChunks = 0; this.micBytes = 0; this.micRateWarned = false;
         this.myCurrentUtterance = '';
         this.theirCurrentUtterance = '';
         this.myCompletionBuffer = '';

@@ -39,6 +39,7 @@ const isMacOS = window.api.platform.isMacOS;
 let mediaStream = null;
 let micMediaStream = null;
 let audioContext = null;
+let micPipelineCounter = 0;   // diagnostics: how many mic pipelines were created this page lifetime
 let audioProcessor = null;
 let systemAudioContext = null;
 let systemAudioProcessor = null;
@@ -300,11 +301,31 @@ async function setupMicProcessing(micStream) {
     const micSource = micAudioContext.createMediaStreamSource(micStream);
     const micProcessor = micAudioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
+    const actualRate = micAudioContext.sampleRate;
+    const track = micStream.getAudioTracks()[0];
+    console.log(`[listenCapture] mic pipeline #${++micPipelineCounter}: context ${actualRate} Hz, device "${track?.label || 'unknown'}", track rate ${track?.getSettings?.().sampleRate || 'n/a'}`);
+    const needsResample = Math.abs(actualRate - SAMPLE_RATE) > 1;
+    if (needsResample) console.warn(`[listenCapture] mic context runs at ${actualRate} Hz, resampling to ${SAMPLE_RATE} Hz`);
+
     let audioBuffer = [];
     const samplesPerChunk = SAMPLE_RATE * AUDIO_CHUNK_DURATION;
+    let resamplePos = 0;
 
     micProcessor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
+        const rawInput = e.inputBuffer.getChannelData(0);
+        let inputData = rawInput;
+        if (needsResample) {
+            // linear resampler to SAMPLE_RATE, keeps fractional position across callbacks
+            const ratio = actualRate / SAMPLE_RATE;
+            const out = [];
+            while (resamplePos < rawInput.length - 1) {
+                const i = Math.floor(resamplePos), frac = resamplePos - i;
+                out.push(rawInput[i] * (1 - frac) + rawInput[i + 1] * frac);
+                resamplePos += ratio;
+            }
+            resamplePos -= rawInput.length;
+            inputData = out;
+        }
         audioBuffer.push(...inputData);
         // console.log('🎤 micProcessor.onaudioprocess');
 
@@ -415,6 +436,13 @@ function setupSystemAudioProcessing(systemStream) {
 // Main capture functions (exact from renderer.js)
 // ---------------------------
 async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'medium') {
+
+    // A second start without a stop (e.g. repeated session init) must never leave two
+    // microphone pipelines running: they would both stream, doubling the audio sent to STT.
+    if (audioProcessor || micMediaStream || audioContext) {
+        console.warn('[listenCapture] startCapture called while capture is active - stopping the previous pipeline first');
+        stopCapture();
+    }
 
     // Reset token tracker when starting new capture session
     tokenTracker.reset();
@@ -574,6 +602,7 @@ async function startCapture(screenshotIntervalSeconds = 5, imageQuality = 'mediu
 function stopCapture() {
     // Clean up microphone resources
     if (audioProcessor) {
+        audioProcessor.onaudioprocess = null;
         audioProcessor.disconnect();
         audioProcessor = null;
     }
