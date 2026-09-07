@@ -736,6 +736,7 @@ export class AskView extends LitElement {
         this.handleTextKeydown = this.handleTextKeydown.bind(this);
         this.handleCopy = this.handleCopy.bind(this);
         this.clearResponseContent = this.clearResponseContent.bind(this);
+        this.handleClearResponse = this.handleClearResponse.bind(this);
         this.handleEscKey = this.handleEscKey.bind(this);
         this.handleScroll = this.handleScroll.bind(this);
         this.handleCloseAskWindow = this.handleCloseAskWindow.bind(this);
@@ -909,8 +910,25 @@ export class AskView extends LitElement {
     handleEscKey(e) {
         if (e.key === 'Escape') {
             e.preventDefault();
-            this.handleCloseIfNoContent();
+            // First Esc: stop/clear the current answer. Second Esc (empty window): close.
+            if (this.currentResponse || this.isLoading || this.isStreaming) {
+                this.handleClearResponse();
+            } else {
+                this.handleCloseAskWindow();
+            }
         }
+    }
+
+    async handleClearResponse() {
+        try {
+            await window.api.askView.clearResponse();
+        } catch (error) {
+            console.error('[AskView] clearResponse failed:', error);
+        }
+        this.clearResponseContent();
+        this.requestUpdate();
+        await this.updateComplete;
+        this.shadowRoot?.getElementById('textInput')?.focus();
     }
 
     clearResponseContent() {
@@ -1365,7 +1383,17 @@ export class AskView extends LitElement {
                                     <path d="M20 6L9 17l-5-5" />
                                 </svg>
                             </button>
-                            <button class="close-button" @click=${this.handleCloseAskWindow}>
+                            <button class="close-button" title=${this.isStreaming || this.isLoading ? 'Stop answer (Esc)' : 'Clear answer, ask a new question (Esc)'} @click=${this.handleClearResponse}>
+                                ${this.isStreaming || this.isLoading ? html`
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                                    </svg>` : html`
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 12a9 9 0 1 0 3-6.7" />
+                                        <polyline points="3 3 3 9 9 9" />
+                                    </svg>`}
+                            </button>
+                            <button class="close-button" title="Close window (Esc when empty)" @click=${this.handleCloseAskWindow}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="18" y1="6" x2="6" y2="18" />
                                     <line x1="6" y1="6" x2="18" y2="18" />

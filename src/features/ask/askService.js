@@ -176,6 +176,24 @@ class AskService {
         }
     }
 
+    /** Stops a running answer and clears the response, keeping the window open with the input shown. */
+    async clearResponse() {
+        if (this.abortController) {
+            this.abortController.abort('Cleared by user');
+            this.abortController = null;
+        }
+        this.state = {
+            ...this.state,
+            isLoading      : false,
+            isStreaming    : false,
+            currentQuestion: '',
+            currentResponse: '',
+            showTextInput  : true,
+        };
+        this._broadcastState();
+        return { success: true };
+    }
+
     async closeAskWindow () {
             if (this.abortController) {
                 this.abortController.abort('Window closed by user');
