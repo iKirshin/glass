@@ -160,7 +160,7 @@ Every Listen session is recorded as two WAV files (24 kHz mono): `me.wav` (micro
 
 ### Runtime
 
-Built on Electron 44 (upgraded from 30 so that content protection survives hide/show cycles on Windows, see Electron #45868). Requires macOS 13+ or Windows 10 build 19041+; native modules (better-sqlite3 13, sharp 0.35, keytar) are rebuilt by `npm install`.
+Built on Electron 44 (upgraded from 30 so that content protection survives hide/show cycles on Windows, see Electron #45868). Requires macOS 13+; on Windows, full invisibility during screen sharing needs Windows 10 build 19041+ or Windows 11 (older builds show the windows as black rectangles, and the app warns about it at startup and in Settings); native modules (better-sqlite3 13, sharp 0.35, keytar) are rebuilt by `npm install`.
 
 ### Branding
 
