@@ -429,6 +429,34 @@ function setupWebDataHandlers() {
                     result = batchResult;
                     break;
 
+                // PERSONA (interview profile)
+                case 'get-persona':
+                    result = await require('./features/persona/personaService').getProfile();
+                    break;
+                case 'get-persona-options':
+                    result = require('./features/persona/personaService').getOptions();
+                    break;
+                case 'save-persona':
+                    result = await require('./features/persona/personaService').saveProfile(payload || {});
+                    break;
+                case 'delete-persona':
+                    result = await require('./features/persona/personaService').deleteProfile();
+                    break;
+                // MODELS (read-only, no secrets)
+                case 'get-model-settings': {
+                    const settings = await settingsService.getModelSettings();
+                    if (!settings.success) throw new Error(settings.error || 'Failed to read model settings');
+                    const { config, storedKeys, availableLlm, availableStt, selectedModels } = settings.data;
+                    const providers = Object.entries(config).map(([id, p]) => ({
+                        id,
+                        name: p.name,
+                        hasKey: !!(storedKeys && storedKeys[id]),
+                        llmModels: p.llmModels || [],
+                        sttModels: p.sttModels || [],
+                    }));
+                    result = { providers, availableLlm, availableStt, selectedModels };
+                    break;
+                }
                 default:
                     throw new Error(`Unknown web data channel: ${channel}`);
             }

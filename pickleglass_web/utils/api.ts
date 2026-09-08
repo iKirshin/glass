@@ -1,18 +1,5 @@
-import { auth as firebaseAuth } from './firebase';
-import { 
-  FirestoreUserService, 
-  FirestoreSessionService, 
-  FirestoreTranscriptService, 
-  FirestoreAiMessageService, 
-  FirestoreSummaryService, 
-  FirestorePromptPresetService,
-  FirestoreSession,
-  FirestoreTranscript,
-  FirestoreAiMessage,
-  FirestoreSummary,
-  FirestorePromptPreset
-} from './firestore';
-import { Timestamp } from 'firebase/firestore';
+// Local-only API client for the InPro dashboard. All data comes from the
+// desktop app's local backend (SQLite via IPC); there is no cloud account.
 
 export interface UserProfile {
   uid: string;
@@ -36,7 +23,7 @@ export interface Transcript {
   session_id: string;
   start_at: number;
   end_at?: number;
-  speaker?: string;
+  speaker: string;
   text: string;
   lang?: string;
   created_at: number;
@@ -73,137 +60,78 @@ export interface PromptPreset {
   uid: string;
   title: string;
   prompt: string;
-  is_default: 0 | 1;
+  is_default: number;
   created_at: number;
   sync_state: 'clean' | 'dirty';
 }
 
 export interface SessionDetails {
-    session: Session;
-    transcripts: Transcript[];
-    ai_messages: AiMessage[];
-    summary: Summary | null;
+  session: Session;
+  transcripts: Transcript[];
+  ai_messages: AiMessage[];
+  summary: Summary | null;
 }
 
+export interface PersonaProfile {
+  uid?: string;
+  enabled: number | boolean | null;
+  display_name: string | null;
+  target_role: string | null;
+  resume_text: string | null;
+  resume_file_name: string | null;
+  competence_mode: string | null;
+  expertise_notes: string | null;
+  language_level: string | null;
+  answer_language: string | null;
+  extra_instructions: string | null;
+  updated_at?: number;
+}
 
-const isFirebaseMode = (): boolean => {
-  // The web frontend can no longer directly access Firebase state,
-  // so we assume communication always goes through the backend API.
-  // In the future, we can create an endpoint like /api/auth/status 
-  // in the backend to retrieve the authentication state.
-  return false;
+export interface PersonaOptions {
+  competenceModes: { id: string; label: string }[];
+  languageLevels: { id: string; label: string }[];
+  maxResumeChars: number;
+  supportedExtensions: string[];
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  custom?: boolean;
+  pricing?: { input?: number; output?: number; perMinute?: number; free?: boolean; note?: string };
+}
+
+export interface ModelSettings {
+  providers: { id: string; name: string; hasKey: boolean; llmModels: ModelOption[]; sttModels: ModelOption[] }[];
+  availableLlm: ModelOption[];
+  availableStt: ModelOption[];
+  selectedModels: { llm: string | null; stt: string | null };
+}
+
+export const LOCAL_USER: UserProfile = {
+  uid: 'default_user',
+  display_name: 'Local User',
+  email: '',
 };
 
-const timestampToUnix = (timestamp: Timestamp): number => {
-  return timestamp.seconds * 1000 + Math.floor(timestamp.nanoseconds / 1000000);
-};
+// ---------------------------------------------------------------------------
+// API origin (injected by the desktop app through runtime-config.json)
 
-const unixToTimestamp = (unix: number): Timestamp => {
-  return Timestamp.fromMillis(unix);
-};
-
-const convertFirestoreSession = (session: { id: string } & FirestoreSession, uid: string): Session => {
-  return {
-    id: session.id,
-    uid,
-    title: session.title,
-    session_type: session.session_type,
-    started_at: timestampToUnix(session.startedAt),
-    ended_at: session.endedAt ? timestampToUnix(session.endedAt) : undefined,
-    sync_state: 'clean',
-    updated_at: timestampToUnix(session.startedAt)
-  };
-};
-
-const convertFirestoreTranscript = (transcript: { id: string } & FirestoreTranscript): Transcript => {
-  return {
-    id: transcript.id,
-    session_id: '',
-    start_at: timestampToUnix(transcript.startAt),
-    end_at: transcript.endAt ? timestampToUnix(transcript.endAt) : undefined,
-    speaker: transcript.speaker,
-    text: transcript.text,
-    lang: transcript.lang,
-    created_at: timestampToUnix(transcript.createdAt),
-    sync_state: 'clean'
-  };
-};
-
-const convertFirestoreAiMessage = (message: { id: string } & FirestoreAiMessage): AiMessage => {
-  return {
-    id: message.id,
-    session_id: '',
-    sent_at: timestampToUnix(message.sentAt),
-    role: message.role,
-    content: message.content,
-    tokens: message.tokens,
-    model: message.model,
-    created_at: timestampToUnix(message.createdAt),
-    sync_state: 'clean'
-  };
-};
-
-const convertFirestoreSummary = (summary: FirestoreSummary, sessionId: string): Summary => {
-  return {
-    session_id: sessionId,
-    generated_at: timestampToUnix(summary.generatedAt),
-    model: summary.model,
-    text: summary.text,
-    tldr: summary.tldr,
-    bullet_json: JSON.stringify(summary.bulletPoints),
-    action_json: JSON.stringify(summary.actionItems),
-    tokens_used: summary.tokensUsed,
-    updated_at: timestampToUnix(summary.generatedAt),
-    sync_state: 'clean'
-  };
-};
-
-const convertFirestorePreset = (preset: { id: string } & FirestorePromptPreset, uid: string): PromptPreset => {
-  return {
-    id: preset.id,
-    uid,
-    title: preset.title,
-    prompt: preset.prompt,
-    is_default: preset.isDefault ? 1 : 0,
-    created_at: timestampToUnix(preset.createdAt),
-    sync_state: 'clean'
-  };
-};
-
-
-let API_ORIGIN = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:9001'
-  : '';
-
-const loadRuntimeConfig = async (): Promise<string | null> => {
-  try {
-    const response = await fetch('/runtime-config.json');
-    if (response.ok) {
-      const config = await response.json();
-      console.log('✅ Runtime config loaded:', config);
-      return config.API_URL;
-    }
-  } catch (error) {
-    console.log('⚠️ Failed to load runtime config:', error);
-  }
-  return null;
-};
-
+let API_ORIGIN = process.env.NODE_ENV === 'development' ? 'http://localhost:9001' : '';
 let apiUrlInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 
 const initializeApiUrl = async () => {
   if (apiUrlInitialized) return;
-  
-  // Electron IPC 관련 코드를 모두 제거하고 runtime-config.json 또는 fallback에만 의존합니다.
-  const runtimeUrl = await loadRuntimeConfig();
-  if (runtimeUrl) {
-    API_ORIGIN = runtimeUrl;
-    apiUrlInitialized = true;
-    return;
+  try {
+    const response = await fetch('/runtime-config.json');
+    if (response.ok) {
+      const config = await response.json();
+      if (config.API_URL) API_ORIGIN = config.API_URL;
+    }
+  } catch (error) {
+    console.log('Runtime config not available, using fallback API URL:', API_ORIGIN);
   }
-
-  console.log('📍 Using fallback API URL:', API_ORIGIN);
   apiUrlInitialized = true;
 };
 
@@ -211,379 +139,102 @@ if (typeof window !== 'undefined') {
   initializationPromise = initializeApiUrl();
 }
 
-const userInfoListeners: Array<(userInfo: UserProfile | null) => void> = [];
-
-export const getUserInfo = (): UserProfile | null => {
-  if (typeof window === 'undefined') return null;
-  
-  const storedUserInfo = localStorage.getItem('pickleglass_user');
-  if (storedUserInfo) {
-    try {
-      return JSON.parse(storedUserInfo);
-    } catch (error) {
-      console.error('Failed to parse user info:', error);
-      localStorage.removeItem('pickleglass_user');
-    }
-  }
-  return null;
-};
-
-export const setUserInfo = (userInfo: UserProfile | null, skipEvents: boolean = false) => {
-  if (typeof window === 'undefined') return;
-  
-  if (userInfo) {
-    localStorage.setItem('pickleglass_user', JSON.stringify(userInfo));
-  } else {
-    localStorage.removeItem('pickleglass_user');
-  }
-  
-  if (!skipEvents) {
-    userInfoListeners.forEach(listener => listener(userInfo));
-    
-    window.dispatchEvent(new Event('userInfoChanged'));
-  }
-};
-
-export const onUserInfoChange = (listener: (userInfo: UserProfile | null) => void) => {
-  userInfoListeners.push(listener);
-  
-  return () => {
-    const index = userInfoListeners.indexOf(listener);
-    if (index > -1) {
-      userInfoListeners.splice(index, 1);
-    }
-  };
-};
-
-export const getApiHeaders = (): HeadersInit => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  const userInfo = getUserInfo();
-  if (userInfo?.uid) {
-    headers['X-User-ID'] = userInfo.uid;
-  }
-  
-  return headers;
-};
-
+export const getApiHeaders = (): HeadersInit => ({
+  'Content-Type': 'application/json',
+  'X-User-ID': LOCAL_USER.uid,
+});
 
 export const apiCall = async (path: string, options: RequestInit = {}) => {
-  if (!apiUrlInitialized && initializationPromise) {
-    await initializationPromise;
-  }
-  
-  if (!apiUrlInitialized) {
-    await initializeApiUrl();
-  }
-  
-  const url = `${API_ORIGIN}${path}`;
-  console.log('🌐 apiCall (Local Mode):', {
-    path,
-    API_ORIGIN,
-    fullUrl: url,
-    initialized: apiUrlInitialized,
-    timestamp: new Date().toISOString()
-  });
-  
-  const defaultOpts: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...getApiHeaders(),
-      ...(options.headers || {}),
-    },
+  if (!apiUrlInitialized && initializationPromise) await initializationPromise;
+  if (!apiUrlInitialized) await initializeApiUrl();
+  return fetch(`${API_ORIGIN}${path}`, {
     ...options,
-  };
-  return fetch(url, defaultOpts);
+    headers: { ...getApiHeaders(), ...(options.headers || {}) },
+  });
 };
 
+const json = async <T,>(response: Response, what: string): Promise<T> => {
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`Failed to ${what}: ${response.status} ${text}`);
+  }
+  return response.json();
+};
+
+// ---------------------------------------------------------------------------
+// Conversations
 
 export const searchConversations = async (query: string): Promise<Session[]> => {
-  if (!query.trim()) {
-    return [];
-  }
-
-  if (isFirebaseMode()) {
-    const sessions = await getSessions();
-    return sessions.filter(session => 
-      session.title.toLowerCase().includes(query.toLowerCase())
-    );
-  } else {
-    const response = await apiCall(`/api/conversations/search?q=${encodeURIComponent(query)}`, {
-      method: 'GET',
-    });
-    if (!response.ok) {
-      throw new Error('Failed to search conversations');
-    }
-    return response.json();
-  }
+  if (!query.trim()) return [];
+  return json(await apiCall(`/api/conversations/search?q=${encodeURIComponent(query)}`), 'search conversations');
 };
 
-export const getSessions = async (): Promise<Session[]> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    const firestoreSessions = await FirestoreSessionService.getSessions(uid);
-    return firestoreSessions.map(session => convertFirestoreSession(session, uid));
-  } else {
-    const response = await apiCall(`/api/conversations`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to fetch sessions');
-    return response.json();
-  }
-};
+export const getSessions = async (): Promise<Session[]> =>
+  json(await apiCall('/api/conversations'), 'fetch sessions');
 
-export const getSessionDetails = async (sessionId: string): Promise<SessionDetails> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    
-    const [session, transcripts, aiMessages, summary] = await Promise.all([
-      FirestoreSessionService.getSession(uid, sessionId),
-      FirestoreTranscriptService.getTranscripts(uid, sessionId),
-      FirestoreAiMessageService.getAiMessages(uid, sessionId),
-      FirestoreSummaryService.getSummary(uid, sessionId)
-    ]);
+export const getSessionDetails = async (sessionId: string): Promise<SessionDetails> =>
+  json(await apiCall(`/api/conversations/${sessionId}`), 'fetch session details');
 
-    if (!session) {
-      throw new Error('Session not found');
-    }
-
-    return {
-      session: convertFirestoreSession({ id: sessionId, ...session }, uid),
-      transcripts: transcripts.map(t => ({ ...convertFirestoreTranscript(t), session_id: sessionId })),
-      ai_messages: aiMessages.map(m => ({ ...convertFirestoreAiMessage(m), session_id: sessionId })),
-      summary: summary ? convertFirestoreSummary(summary, sessionId) : null
-    };
-  } else {
-    const response = await apiCall(`/api/conversations/${sessionId}`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to fetch session details');
-    return response.json();
-  }
-};
-
-export const createSession = async (title?: string): Promise<{ id: string }> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    const sessionId = await FirestoreSessionService.createSession(uid, {
-      title: title || 'New Session',
-      session_type: 'ask',
-      endedAt: undefined
-    });
-    return { id: sessionId };
-  } else {
-    const response = await apiCall(`/api/conversations`, {
-      method: 'POST',
-      body: JSON.stringify({ title }),
-    });
-    if (!response.ok) throw new Error('Failed to create session');
-    return response.json();
-  }
-};
+export const createSession = async (title?: string): Promise<{ id: string }> =>
+  json(await apiCall('/api/conversations', { method: 'POST', body: JSON.stringify({ title }) }), 'create session');
 
 export const deleteSession = async (sessionId: string): Promise<void> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    await FirestoreSessionService.deleteSession(uid, sessionId);
-  } else {
-    const response = await apiCall(`/api/conversations/${sessionId}`, { method: 'DELETE' });
-    if (!response.ok) throw new Error('Failed to delete session');
-  }
+  const response = await apiCall(`/api/conversations/${sessionId}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete session');
 };
 
-export const getUserProfile = async (): Promise<UserProfile> => {
-  if (isFirebaseMode()) {
-    const user = firebaseAuth.currentUser!;
-    const firestoreProfile = await FirestoreUserService.getUser(user.uid);
-    
-    return {
-      uid: user.uid,
-      display_name: firestoreProfile?.displayName || user.displayName || 'User',
-      email: firestoreProfile?.email || user.email || 'no-email@example.com'
-    };
-  } else {
-    const response = await apiCall(`/api/user/profile`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to fetch user profile');
-    return response.json();
-  }
-};
+// ---------------------------------------------------------------------------
+// User
+
+export const getUserProfile = async (): Promise<UserProfile> =>
+  json(await apiCall('/api/user/profile'), 'fetch user profile');
 
 export const updateUserProfile = async (data: { displayName: string }): Promise<void> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    await FirestoreUserService.updateUser(uid, { displayName: data.displayName });
-  } else {
-    const response = await apiCall(`/api/user/profile`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Failed to update user profile');
-  }
+  const response = await apiCall('/api/user/profile', { method: 'PUT', body: JSON.stringify(data) });
+  if (!response.ok) throw new Error('Failed to update profile');
 };
 
-export const findOrCreateUser = async (user: UserProfile): Promise<UserProfile> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    const existingUser = await FirestoreUserService.getUser(uid);
-    
-    if (!existingUser) {
-      await FirestoreUserService.createUser(uid, {
-        displayName: user.display_name,
-        email: user.email
-      });
-    }
-    
-    return user;
-  } else {
-    const response = await apiCall(`/api/user/find-or-create`, {
-        method: 'POST',
-        body: JSON.stringify(user),
-    });
-    if (!response.ok) throw new Error('Failed to find or create user');
-    return response.json();
-  }
+export const checkApiKeyStatus = async (): Promise<{ hasApiKey: boolean }> =>
+  json(await apiCall('/api/user/api-key-status'), 'check API key status');
+
+// ---------------------------------------------------------------------------
+// Interview profile (persona)
+
+export const getPersona = async (): Promise<PersonaProfile | null> =>
+  json(await apiCall('/api/persona'), 'fetch interview profile');
+
+export const getPersonaOptions = async (): Promise<PersonaOptions> =>
+  json(await apiCall('/api/persona/options'), 'fetch profile options');
+
+export const savePersona = async (profile: Partial<PersonaProfile> & Record<string, unknown>): Promise<PersonaProfile> =>
+  json(await apiCall('/api/persona', { method: 'PUT', body: JSON.stringify(profile) }), 'save interview profile');
+
+export const deletePersona = async (): Promise<void> => {
+  const response = await apiCall('/api/persona', { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to remove interview profile');
 };
 
-export const saveApiKey = async (apiKey: string): Promise<void> => {
-  if (isFirebaseMode()) {
-    console.log('API key is not needed in Firebase mode');
-    return;
-  } else {
-    const response = await apiCall(`/api/user/api-key`, {
-        method: 'POST',
-        body: JSON.stringify({ apiKey }),
-    });
-    if (!response.ok) throw new Error('Failed to save API key');
-  }
-};
+// ---------------------------------------------------------------------------
+// AI models (read-only)
 
-export const checkApiKeyStatus = async (): Promise<{ hasApiKey: boolean }> => {
-  if (isFirebaseMode()) {
-    return { hasApiKey: true };
-  } else {
-    const response = await apiCall(`/api/user/api-key-status`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to check API key status');
-    return response.json();
-  }
-};
+export const getModelSettings = async (): Promise<ModelSettings> =>
+  json(await apiCall('/api/models'), 'fetch model settings');
 
-export const deleteAccount = async (): Promise<void> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    
-    await FirestoreUserService.deleteUser(uid);
-    
-    await firebaseAuth.currentUser!.delete();
-  } else {
-    const response = await apiCall(`/api/user/profile`, { method: 'DELETE' });
-    if (!response.ok) throw new Error('Failed to delete account');
-  }
-};
+// ---------------------------------------------------------------------------
+// Prompt presets (kept for the local API; not used by the Ask prompt)
 
-export const getPresets = async (): Promise<PromptPreset[]> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    const firestorePresets = await FirestorePromptPresetService.getPresets(uid);
-    return firestorePresets.map(preset => convertFirestorePreset(preset, uid));
-  } else {
-    const response = await apiCall(`/api/presets`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to fetch presets');
-    return response.json();
-  }
-};
+export const getPresets = async (): Promise<PromptPreset[]> =>
+  json(await apiCall('/api/presets'), 'fetch presets');
 
-export const createPreset = async (data: { title: string, prompt: string }): Promise<{ id: string }> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    const presetId = await FirestorePromptPresetService.createPreset(uid, {
-      title: data.title,
-      prompt: data.prompt,
-      isDefault: false
-    });
-    return { id: presetId };
-  } else {
-    const response = await apiCall(`/api/presets`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Failed to create preset');
-    return response.json();
-  }
-};
+export const createPreset = async (data: { title: string; prompt: string }): Promise<{ id: string }> =>
+  json(await apiCall('/api/presets', { method: 'POST', body: JSON.stringify(data) }), 'create preset');
 
-export const updatePreset = async (id: string, data: { title: string, prompt: string }): Promise<void> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    await FirestorePromptPresetService.updatePreset(uid, id, {
-      title: data.title,
-      prompt: data.prompt
-    });
-  } else {
-    const response = await apiCall(`/api/presets/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to update preset: ${response.status} ${errorText}`);
-    }
-  }
+export const updatePreset = async (id: string, data: { title: string; prompt: string }): Promise<void> => {
+  const response = await apiCall(`/api/presets/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  if (!response.ok) throw new Error('Failed to update preset');
 };
 
 export const deletePreset = async (id: string): Promise<void> => {
-  if (isFirebaseMode()) {
-    const uid = firebaseAuth.currentUser!.uid;
-    await FirestorePromptPresetService.deletePreset(uid, id);
-  } else {
-    const response = await apiCall(`/api/presets/${id}`, { method: 'DELETE' });
-    if (!response.ok) throw new Error('Failed to delete preset');
-  }
+  const response = await apiCall(`/api/presets/${id}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete preset');
 };
-
-export interface BatchData {
-    profile?: UserProfile;
-    presets?: PromptPreset[];
-    sessions?: Session[];
-}
-
-export const getBatchData = async (includes: ('profile' | 'presets' | 'sessions')[]): Promise<BatchData> => {
-  if (isFirebaseMode()) {
-    const result: BatchData = {};
-    
-    const promises: Promise<any>[] = [];
-    
-    if (includes.includes('profile')) {
-      promises.push(getUserProfile().then(profile => ({ type: 'profile', data: profile })));
-    }
-    if (includes.includes('presets')) {
-      promises.push(getPresets().then(presets => ({ type: 'presets', data: presets })));
-    }
-    if (includes.includes('sessions')) {
-      promises.push(getSessions().then(sessions => ({ type: 'sessions', data: sessions })));
-    }
-    
-    const results = await Promise.all(promises);
-    
-    results.forEach(({ type, data }) => {
-      result[type as keyof BatchData] = data;
-    });
-    
-    return result;
-  } else {
-    const response = await apiCall(`/api/user/batch?include=${includes.join(',')}`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to fetch batch data');
-    return response.json();
-  }
-};
-
-export const logout = async () => {
-  if (isFirebaseMode()) {
-    const { signOut } = await import('firebase/auth');
-    await signOut(firebaseAuth);
-  }
-  
-  setUserInfo(null);
-  
-  localStorage.removeItem('openai_api_key');
-  localStorage.removeItem('user_info');
-  
-  window.location.href = '/login';
-}; 

@@ -1,110 +1,48 @@
 'use client'
 
-import { HelpCircle, Book, MessageCircle, Mail } from 'lucide-react'
-import { useRedirectIfNotAuth } from '@/utils/auth'
+import { BookOpen, Github, Keyboard, Mic } from 'lucide-react'
 
 export default function HelpPage() {
-  const userInfo = useRedirectIfNotAuth()
-
-  if (!userInfo) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
+  const card = 'bg-white border border-gray-200 rounded-lg p-6'
   return (
-    <div className="p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Help Center</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <Book className="h-6 w-6 text-blue-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Getting Started</h2>
-            </div>
-            <p className="text-gray-600 mb-4">
-              New to pickleglass? Learn about basic features and setup methods.
-            </p>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li>• Setting up personalized contexts</li>
-              <li>• Selecting presets and creating custom contexts</li>
-              <li>• Checking activity records</li>
-              <li>• Changing settings</li>
+    <div className="bg-stone-50 min-h-screen">
+      <div className="px-8 py-8 max-w-4xl">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Help</h1>
+        <div className="grid grid-cols-2 gap-6">
+          <div className={card}>
+            <div className="flex items-center gap-2 mb-3"><BookOpen className="h-5 w-5 text-gray-600" /><h2 className="text-lg font-semibold text-gray-900">Getting started</h2></div>
+            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+              <li>Add an API key (OpenAI, Anthropic, Google, Deepgram) or enable a local model in the desktop app.</li>
+              <li>Fill in the Interview Profile: résumé, competence boundaries, language level.</li>
+              <li>Press Listen during the call, then Ask (Cmd+Enter) to get an answer to the last question.</li>
+            </ol>
+          </div>
+          <div className={card}>
+            <div className="flex items-center gap-2 mb-3"><Keyboard className="h-5 w-5 text-gray-600" /><h2 className="text-lg font-semibold text-gray-900">Shortcuts (macOS)</h2></div>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li>Cmd+Enter — Ask about the last question / toggle the Ask window</li>
+              <li>Cmd+\ — hide or show all windows</li>
+              <li>Cmd+Shift+↑/↓ — scroll the answer</li>
+              <li>Esc in Ask — stop or clear the answer, then close</li>
             </ul>
           </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <HelpCircle className="h-6 w-6 text-green-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Frequently Asked Questions</h2>
-            </div>
-            <p className="text-gray-600 mb-4">
-              Check out frequently asked questions and answers from other users.
-            </p>
-            <div className="space-y-3">
-              <details className="text-sm">
-                <summary className="font-medium text-gray-700 cursor-pointer">
-                  How do I change the context?
-                </summary>
-                <p className="text-gray-600 mt-2 pl-4">
-                  On the Personalize page, select a preset or enter a custom context, then click the Save button.
-                </p>
-              </details>
-              <details className="text-sm">
-                <summary className="font-medium text-gray-700 cursor-pointer">
-                  Where can I check my activity history?
-                </summary>
-                <p className="text-gray-600 mt-2 pl-4">
-                  You can check your past activity records on the My Activity page.
-                </p>
-              </details>
-            </div>
+          <div className={card}>
+            <div className="flex items-center gap-2 mb-3"><Mic className="h-5 w-5 text-gray-600" /><h2 className="text-lg font-semibold text-gray-900">Better transcription</h2></div>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li>Use headphones: it removes the other side&apos;s voice from your microphone.</li>
+              <li>The app records both channels; re-listen from Settings → Open Recordings Folder.</li>
+              <li>If recognition stalls, it restarts itself; watch the terminal for [SystemAudio] lines when running from source.</li>
+            </ul>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <MessageCircle className="h-6 w-6 text-purple-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Community</h2>
-            </div>
-            <p className="text-gray-600 mb-4">
-              Connect with other users and share tips.
+          <div className={card}>
+            <div className="flex items-center gap-2 mb-3"><Github className="h-5 w-5 text-gray-600" /><h2 className="text-lg font-semibold text-gray-900">Source code</h2></div>
+            <p className="text-sm text-gray-700">
+              InPro is an open-source fork of Glass. Issues and changes:{' '}
+              <a className="text-blue-600 hover:underline" href="https://github.com/iKirshin/glass" target="_blank" rel="noopener noreferrer">github.com/iKirshin/glass</a>
             </p>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-              Join Community →
-            </button>
           </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center mb-4">
-              <Mail className="h-6 w-6 text-red-600 mr-3" />
-              <h2 className="text-xl font-semibold text-gray-900">Contact Us</h2>
-            </div>
-            <p className="text-gray-600 mb-4">
-              Couldn't find a solution? Contact us directly.
-            </p>
-            <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-              Contact via Email →
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-8 p-6 bg-blue-50 rounded-lg">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">💡 Tip</h3>
-          <p className="text-gray-700">
-            Each context is optimized for different situations. 
-            Choose the appropriate preset for your work environment, 
-            or create your own custom context!
-          </p>
         </div>
       </div>
     </div>
   )
-} 
+}

@@ -1625,7 +1625,7 @@ export class SettingsView extends LitElement {
 
                 <div class="buttons-section">
                     <button class="settings-button full-width" @click=${this.handlePersonalize}>
-                        <span>Personalize / Meeting Notes</span>
+                        <span>Open Dashboard (history, profile)</span>
                     </button>
                     <button class="settings-button full-width" @click=${this.handleToggleRecordListen} title="Save both audio channels (you and the other side) as WAV files for every Listen session">
                         <span>Record Listen Audio: ${this.recordListenEnabled ? 'On' : 'Off'}</span>

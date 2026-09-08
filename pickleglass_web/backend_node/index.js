@@ -17,7 +17,7 @@ function createApp(eventBridge) {
     app.use(express.json());
 
     app.get('/', (req, res) => {
-        res.json({ message: "pickleglass API is running" });
+        res.json({ message: "InPro API is running" });
     });
 
     app.use((req, res, next) => {
@@ -31,6 +31,8 @@ function createApp(eventBridge) {
     app.use('/api/user', require('./routes/user'));
     app.use('/api/conversations', require('./routes/conversations'));
     app.use('/api/presets', require('./routes/presets'));
+    app.use('/api/persona', require('./routes/persona'));
+    app.use('/api/models', require('./routes/models'));
 
     app.get('/api/sync/status', (req, res) => {
         res.json({

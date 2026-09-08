@@ -152,7 +152,7 @@ InPro runs fully locally. The Google/Firebase login, the "use Pickle's key" prox
 - AI requests go directly from your machine to the provider you configured (OpenAI, Anthropic, Gemini, Deepgram) or to local Ollama / Whisper;
 - no telemetry, no account, nothing leaves the device except the requests to the AI providers you chose.
 
-The local web dashboard (history, presets) is still bundled and served from `localhost`.
+The local web dashboard (`pickleglass_web`, served from `localhost`, opened via Settings → *Open Dashboard*) is rebranded and local-only: My Activity (session history), Interview Profile (the same persona settings as the desktop window) and a read-only overview of the configured AI models. Its Firebase login, billing and download pages are removed.
 
 ### Listen session recordings
 

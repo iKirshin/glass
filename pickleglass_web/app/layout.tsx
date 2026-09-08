@@ -5,8 +5,8 @@ import ClientLayout from '@/components/ClientLayout'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'pickleglass - AI Assistant',
-  description: 'Personalized AI Assistant for various contexts',
+  title: 'InPro',
+  description: 'Interview co-pilot: local dashboard for your history and interview profile',
 }
 
 export default function RootLayout({
