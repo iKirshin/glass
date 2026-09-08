@@ -46,11 +46,9 @@ win:
         - target: portable
           arch: x64
     requestedExecutionLevel: asInvoker
-    signAndEditExecutable: true
-    cscLink: build\certs\glass-dev.pfx
-    cscKeyPassword: "${env.CSC_KEY_PASSWORD}"
-    signtoolOptions:
-      certificateSubjectName: "Glass Dev Code Signing"
+    # Unsigned build by default. To sign, set CSC_LINK / CSC_KEY_PASSWORD env vars
+    # (electron-builder picks them up automatically).
+    signAndEditExecutable: false
 
 # NSIS installer configuration for Windows
 nsis:
