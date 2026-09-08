@@ -218,6 +218,7 @@ app.whenReady().then(async () => {
         console.log('Web front-end listening on', WEB_PORT);
         
         createWindows();
+        warnIfInvisibilityLimited();
 
     } catch (err) {
         console.error('>>> [index.js] Database initialization failed - some features may not work', err);
@@ -468,6 +469,38 @@ function setupWebDataHandlers() {
     };
     
     eventBridge.on('web-data-request', handleRequest);
+}
+
+// Warn once per OS build when the platform cannot fully hide the windows from
+// screen sharing (old Windows 10 builds), so users know what to expect.
+function warnIfInvisibilityLimited() {
+    try {
+        const { getInvisibilitySupport } = require('./features/common/utils/platformSupport');
+        const support = getInvisibilitySupport();
+        console.log(`[Platform] Invisibility support: ${support.level} (${support.osName})`);
+        if (support.level === 'full') return;
+
+        const Store = require('electron-store');
+        const store = new Store({ name: 'inpro-settings' });
+        const key = `invisibilityWarningDismissed.${support.platform}.${support.build || 'na'}`;
+        if (store.get(key)) return;
+
+        const { windowPool } = require('./window/windowManager.js');
+        const parent = windowPool?.get('header');
+        dialog.showMessageBox(parent && !parent.isDestroyed() ? parent : undefined, {
+            type: 'warning',
+            title: 'Screen sharing invisibility is limited',
+            message: 'InPro cannot fully hide itself from screen sharing on this system',
+            detail: support.message,
+            buttons: ['OK'],
+            checkboxLabel: "Don't show this again on this system",
+            checkboxChecked: false,
+        }).then(({ checkboxChecked }) => {
+            if (checkboxChecked) store.set(key, true);
+        }).catch(err => console.error('[Platform] Warning dialog failed:', err));
+    } catch (error) {
+        console.error('[Platform] Invisibility support check failed:', error);
+    }
 }
 
 async function handleCustomUrl(url) {

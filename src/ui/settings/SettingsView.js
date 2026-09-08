@@ -526,6 +526,7 @@ export class SettingsView extends LitElement {
         firebaseUser: { type: Object, state: true },
         personaSummary: { type: Object, state: true },
         recordListenEnabled: { type: Boolean, state: true },
+        invisibilitySupport: { type: Object, state: true },
         filterThemAudioEnabled: { type: Boolean, state: true },
         isLoading: { type: Boolean, state: true },
         isContentProtectionOn: { type: Boolean, state: true },
@@ -559,6 +560,7 @@ export class SettingsView extends LitElement {
         this.firebaseUser = null;
         this.personaSummary = null;
         this.recordListenEnabled = true;
+        this.invisibilitySupport = null;
         this.filterThemAudioEnabled = true;
         this._personaListener = () => this.loadPersonaSummary();
         this.apiKeys = { openai: '', gemini: '', anthropic: '', whisper: '' };
@@ -601,6 +603,15 @@ export class SettingsView extends LitElement {
         }
         this.autoUpdateLoading = false;
         this.requestUpdate();
+    }
+
+    async loadInvisibilitySupport() {
+        if (!window.api?.settingsView?.getInvisibilitySupport) return;
+        try {
+            this.invisibilitySupport = await window.api.settingsView.getInvisibilitySupport();
+        } catch (e) {
+            console.error('Error loading invisibility support:', e);
+        }
     }
 
     async loadRecordListenSetting() {
@@ -701,6 +712,7 @@ export class SettingsView extends LitElement {
         this.loadPersonaSummary();
         this.loadRecordListenSetting();
         this.loadFilterThemAudioSetting();
+        this.loadInvisibilitySupport();
         try {
             // Load essential data first
             const [userState, modelSettings, presets, contentProtection, shortcuts] = await Promise.all([
@@ -1649,9 +1661,15 @@ export class SettingsView extends LitElement {
                         </button>
                     </div>
                     
-                    <button class="settings-button full-width" @click=${this.handleToggleInvisibility}>
+                    <button class="settings-button full-width" @click=${this.handleToggleInvisibility} title=${this.invisibilitySupport?.message || ''}>
                         <span>${this.isContentProtectionOn ? 'Disable Invisibility' : 'Enable Invisibility'}</span>
                     </button>
+                    ${this.invisibilitySupport && this.invisibilitySupport.level !== 'full' ? html`
+                        <div style="font-size: 10px; color: rgba(255,180,80,0.95); line-height: 1.3; padding: 2px 2px 4px;">
+                            ⚠ ${this.invisibilitySupport.level === 'partial'
+                                ? `Limited on ${this.invisibilitySupport.osName}: windows show as black boxes in screen sharing. Update Windows (build 19041+).`
+                                : 'Not available on this platform.'}
+                        </div>` : ''}
                     
                     <div class="bottom-buttons">
                         <button class="settings-button full-width danger" @click=${this.handleQuit}>

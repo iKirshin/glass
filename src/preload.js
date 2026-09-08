@@ -218,6 +218,7 @@ contextBridge.exposeInMainWorld('api', {
     removeCustomModel: (data) => ipcRenderer.invoke('model:remove-custom-model', data),
     getCustomModelsPath: () => ipcRenderer.invoke('model:get-custom-models-path'),
     openPersonaWindow: () => ipcRenderer.invoke('persona:open-window'),
+    getInvisibilitySupport: () => ipcRenderer.invoke('platform:get-invisibility-support'),
     onPersonaUpdated: (callback) => ipcRenderer.on('persona:updated', callback),
     removeOnPersonaUpdated: (callback) => ipcRenderer.removeListener('persona:updated', callback),
     
