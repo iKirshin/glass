@@ -51,7 +51,6 @@ export class ApiKeyHeader extends LitElement {
             align-items: flex-start;
             gap: 24px;
             display: flex;
-            -webkit-app-region: drag;
         }
         .header {
             width: 100%;

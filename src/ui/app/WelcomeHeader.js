@@ -1,4 +1,5 @@
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
+import { createHeaderDrag } from './headerDrag.js';
 
 export class WelcomeHeader extends LitElement {
     static styles = css`
@@ -25,7 +26,6 @@ export class WelcomeHeader extends LitElement {
             align-items: flex-start;
             gap: 32px;
             display: inline-flex;
-            -webkit-app-region: drag;
         }
         .close-button {
             -webkit-app-region: no-drag;
@@ -170,6 +170,7 @@ export class WelcomeHeader extends LitElement {
         this.loginCallback = () => {};
         this.apiKeyCallback = () => {};
         this.handleClose = this.handleClose.bind(this);
+        this.drag = createHeaderDrag(window.api?.mainHeader || { getHeaderPosition: async () => null, moveHeaderTo: () => {} });
     }
 
     updated(changedProperties) {
@@ -185,7 +186,7 @@ export class WelcomeHeader extends LitElement {
 
     render() {
         return html`
-            <div class="container">
+            <div class="container" @mousedown=${this.drag.onMouseDown}>
                 <button class="close-button" @click=${this.handleClose}>×</button>
                 <div class="header-section">
                     <div class="title">Welcome to InPro</div>

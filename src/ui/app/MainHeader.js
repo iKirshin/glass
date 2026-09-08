@@ -39,7 +39,7 @@ export class MainHeader extends LitElement {
         }
 
         .header {
-            -webkit-app-region: drag;
+            /* native app-region drag removed: it swallows clicks in newer Electron; dragging is done in JS */
             width: max-content;
             height: 47px;
             padding: 2px 10px 2px 13px;

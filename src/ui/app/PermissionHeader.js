@@ -1,4 +1,5 @@
 import { LitElement, html, css } from '../assets/lit-core-2.7.4.min.js';
+import { createHeaderDrag } from './headerDrag.js';
 
 export class PermissionHeader extends LitElement {
     static styles = css`
@@ -26,7 +27,6 @@ export class PermissionHeader extends LitElement {
         }
 
         .container {
-            -webkit-app-region: drag;
             width: 285px;
             /* height is now set dynamically */
             padding: 18px 20px;
@@ -272,6 +272,7 @@ export class PermissionHeader extends LitElement {
 
     constructor() {
         super();
+        this.drag = createHeaderDrag(window.api?.mainHeader || { getHeaderPosition: async () => null, moveHeaderTo: () => {} });
         this.microphoneGranted = 'unknown';
         this.screenGranted = 'unknown';
         this.keychainGranted = 'unknown';
@@ -483,7 +484,7 @@ export class PermissionHeader extends LitElement {
         const allGranted = this.microphoneGranted === 'granted' && this.screenGranted === 'granted' && keychainOk;
 
         return html`
-            <div class="container" style="height: ${containerHeight}px">
+            <div class="container" style="height: ${containerHeight}px" @mousedown=${this.drag.onMouseDown}>
                 <button class="close-button" @click=${this.handleClose} title="Close application">
                     <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor">
                         <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" stroke-width="1.2" />
