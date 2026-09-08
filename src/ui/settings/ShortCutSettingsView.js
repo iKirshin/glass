@@ -25,16 +25,17 @@ export class ShortcutSettingsView extends LitElement {
             outline:.5px rgba(255,255,255,.2) solid; outline-offset:-1px;
             position:relative; overflow:hidden; padding:12px; }
 
-        .close-button{position:absolute;top:10px;right:10px;inline-size:14px;block-size:14px;
-            background:rgba(255,255,255,.1);border:none;border-radius:3px;
-            color:rgba(255,255,255,.7);display:grid;place-items:center;
-            font-size:14px;line-height:0;cursor:pointer;transition:.15s;z-index:10;}
+        .close-button{position:absolute;top:8px;right:8px;inline-size:24px;block-size:24px;padding:0;
+            background:rgba(255,255,255,.1);border:none;border-radius:5px;
+            color:rgba(255,255,255,.75);display:grid;place-items:center;
+            font-size:16px;line-height:1;cursor:pointer;transition:.15s;z-index:20;
+            -webkit-app-region:no-drag;user-select:none;}
+        .close-button *{pointer-events:none;}
         .close-button:hover{background:rgba(255,255,255,.2);color:rgba(255,255,255,.9);}
 
-        .title{font-size:14px;font-weight:500;margin:0 0 8px;padding-bottom:8px;
+        .title{font-size:14px;font-weight:500;margin:0 0 8px;padding:0 40px 8px;
             border-bottom:1px solid rgba(255,255,255,.1);text-align:center;
             -webkit-app-region:drag;cursor:move;}
-        .close-button{-webkit-app-region:no-drag;}
 
         .scroll-area{flex:1 1 auto;overflow-y:auto;margin:0 -4px;padding:4px;}
 
