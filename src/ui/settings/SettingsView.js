@@ -1131,11 +1131,13 @@ export class SettingsView extends LitElement {
     setupEventListeners() {
         this.addEventListener('mouseenter', this.handleMouseEnter);
         this.addEventListener('mouseleave', this.handleMouseLeave);
+        document.addEventListener('keydown', this.handleEscapeKey);
     }
 
     cleanupEventListeners() {
         this.removeEventListener('mouseenter', this.handleMouseEnter);
         this.removeEventListener('mouseleave', this.handleMouseLeave);
+        document.removeEventListener('keydown', this.handleEscapeKey);
     }
 
     setupIpcListeners() {
@@ -1238,13 +1240,20 @@ export class SettingsView extends LitElement {
     }
 
     handleMouseEnter = () => {
-        window.api.settingsView.cancelHideSettingsWindow();
-        // Recalculate height in case it was set to 0 before
+        // The window is opened by click and closed by click/blur/Esc; hovering only
+        // refreshes the scroll height in case it was measured while hidden.
         this.updateScrollHeight();
     }
 
     handleMouseLeave = () => {
-        window.api.settingsView.hideSettingsWindow();
+        // no auto-hide on mouse leave
+    }
+
+    handleEscapeKey = (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            window.api.settingsView.hideSettingsWindow();
+        }
     }
 
 

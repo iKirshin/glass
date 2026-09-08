@@ -14,6 +14,7 @@ module.exports = {
     ipcMain.on('show-settings-window', () => windowManager.showSettingsWindow());
     ipcMain.on('hide-settings-window', () => windowManager.hideSettingsWindow());
     ipcMain.on('cancel-hide-settings-window', () => windowManager.cancelHideSettingsWindow());
+    ipcMain.on('toggle-settings-window', () => windowManager.toggleSettingsWindow());
 
     ipcMain.handle('open-login-page', () => windowManager.openLoginPage());
     ipcMain.handle('open-personalize-page', () => windowManager.openLoginPage());

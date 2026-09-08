@@ -109,6 +109,7 @@ contextBridge.exposeInMainWorld('api', {
     cancelHideSettingsWindow: () => ipcRenderer.send('cancel-hide-settings-window'),
     showSettingsWindow: () => ipcRenderer.send('show-settings-window'),
     hideSettingsWindow: () => ipcRenderer.send('hide-settings-window'),
+    toggleSettingsWindow: () => ipcRenderer.send('toggle-settings-window'),
     
     // Generic invoke (for dynamic channel names)
     // invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),

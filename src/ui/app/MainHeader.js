@@ -523,6 +523,13 @@ export class MainHeader extends LitElement {
         }
     }
 
+    toggleSettingsWindow() {
+        if (this.wasJustDragged) return;
+        if (window.api) {
+            window.api.mainHeader.toggleSettingsWindow();
+        }
+    }
+
     hideSettingsWindow() {
         if (this.wasJustDragged) return;
         if (window.api) {
@@ -662,8 +669,8 @@ export class MainHeader extends LitElement {
 
                 <button 
                     class="settings-button"
-                    @mouseenter=${(e) => this.showSettingsWindow(e.currentTarget)}
-                    @mouseleave=${() => this.hideSettingsWindow()}
+                    title="Settings"
+                    @click=${() => this.toggleSettingsWindow()}
                 >
                     <div class="settings-icon">
                         <svg width="16" height="17" viewBox="0 0 16 17" fill="none" xmlns="http://www.w3.org/2000/svg">

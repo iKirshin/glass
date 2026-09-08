@@ -72,6 +72,23 @@ const cancelHideSettingsWindow = () => {
     internalBridge.emit('window:requestVisibility', { name: 'settings', visible: true });
 };
 
+// Click-to-toggle for the header "⋯" button. The settings window also hides
+// itself on blur (click elsewhere); a click on the header button right after
+// such a blur must not immediately reopen it.
+let settingsHiddenByBlurAt = 0;
+const toggleSettingsWindow = () => {
+    const win = windowPool.get('settings');
+    if (!win || win.isDestroyed()) return;
+    if (win.isVisible()) {
+        if (settingsHideTimer) { clearTimeout(settingsHideTimer); settingsHideTimer = null; }
+        win.setAlwaysOnTop(false);
+        win.hide();
+        return;
+    }
+    if (Date.now() - settingsHiddenByBlurAt < 350) return; // the click that blurred it
+    internalBridge.emit('window:requestVisibility', { name: 'settings', visible: true });
+};
+
 const moveWindowStep = (direction) => {
     internalBridge.emit('window:moveStep', { direction });
 };
@@ -547,6 +564,14 @@ function createFeatureWindows(header, namesToCreate) {
                         }
                     });
                 }
+                settings.on('blur', () => {
+                    // Opened by click; closes when the user clicks anywhere else.
+                    if (!settings.isDestroyed() && settings.isVisible()) {
+                        settingsHiddenByBlurAt = Date.now();
+                        settings.setAlwaysOnTop(false);
+                        settings.hide();
+                    }
+                });
                 windowPool.set('settings', settings);  
 
                 if (!app.isPackaged) {
@@ -833,6 +858,7 @@ module.exports = {
     windowPool,
     toggleContentProtection,
     resizeHeaderWindow,
+    toggleSettingsWindow,
     getContentProtectionStatus,
     showSettingsWindow,
     hideSettingsWindow,
