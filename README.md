@@ -158,6 +158,10 @@ The local web dashboard (`pickleglass_web`, served from `localhost`, opened via 
 
 Every Listen session is recorded as two WAV files (24 kHz mono): `me.wav` (microphone) and `them.wav` (system audio), under `<user data>/recordings/<timestamp>_<session>/` together with `meta.json`. Use them to re-listen to a call when transcription misbehaved. Toggle with **Record Listen Audio** in Settings; the last 20 recordings are kept. The STT service also logs audio flow every 10 s and automatically recreates the recognition sessions when sound is present but nothing is transcribed. The interviewer's channel passes through a speech band-pass (250–3800 Hz) and a peak limiter before recognition (**Clean Interviewer Audio** in Settings) to blunt loud bursts and out-of-band interference; recordings keep the raw audio.
 
+### Runtime
+
+Built on Electron 44 (upgraded from 30 so that content protection survives hide/show cycles on Windows, see Electron #45868). Requires macOS 13+ or Windows 10 build 19041+; native modules (better-sqlite3 13, sharp 0.35, keytar) are rebuilt by `npm install`.
+
 ### Branding
 
 The app is renamed to **InPro** (`appId: com.ikirshin.inpro`), so it installs and stores its data separately from the original Glass; auto-updates point at this repository's releases. Login via the original Pickle backend is still present but optional.

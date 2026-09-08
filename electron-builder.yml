@@ -69,7 +69,7 @@ mac:
     # Path to the .icns icon file
     icon: src/ui/assets/logo.icns
     # Minimum macOS version (supports both Intel and Apple Silicon)
-    minimumSystemVersion: '11.0'
+    minimumSystemVersion: '13.0'
     hardenedRuntime: true
     entitlements: entitlements.plist
     entitlementsInherit: entitlements.plist
