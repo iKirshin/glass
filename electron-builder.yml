@@ -19,6 +19,11 @@ protocols:
     schemes: 
         - pickleglass
 
+# Native modules (better-sqlite3 13, keytar, sharp) ship prebuilt N-API binaries that
+# work in Electron as-is, so no rebuild against Electron headers is needed. This keeps
+# `npm install` and packaging free of Python / MSVC / Xcode requirements.
+npmRebuild: false
+
 # List of files to be included in the app package
 files:
     - src/**/*

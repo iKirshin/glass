@@ -15,8 +15,11 @@ Zoom/Teams/Meet screen share) and tell me exactly what to do and what to look at
      `winver`), Node version, npm version, git commit (`git rev-parse --short HEAD`),
      branch (`feature/persona-profile`).
 2. Build and run from source
-   - `npm install` (must rebuild better-sqlite3, keytar, sharp for Electron 44 without
-     compiler errors), `npm run build:web`, `npm start`.
+   - Preconditions: no InPro/Electron process is running (it locks node_modules\keytar);
+     if a previous install failed, delete `node_modules` first. No Python or Visual Studio
+     is required: native modules use prebuilt N-API binaries and are not rebuilt.
+   - `npm install` (must finish without node-gyp / compiler errors), `npm run build:web`,
+     `npm start`.
    - Capture the terminal output to `docs/test-reports/windows-<yyyy-mm-dd>-startup.log`.
    - Note: the `[Platform] Invisibility support: ...` line must say `full` on
      Windows 10 build 19041+ / Windows 11. If a warning dialog about limited invisibility

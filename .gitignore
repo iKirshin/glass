@@ -113,3 +113,6 @@ data/*.db-wal
 out/
 dist/
 build/ 
+
+# test reports are committed on purpose
+!docs/test-reports/*.log
