@@ -1,0 +1,175 @@
+=== npm install started 2026-09-08T12:18:14+01:00 ===
+npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\Иван\\InPro\\node_modules\\keytar',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\Иван\InPro\node_modules\keytar'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Иван\\InPro\\node_modules\\keytar'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\Иван\\InPro\\node_modules',
+npm warn cleanup     [Error: EBUSY: resource busy or locked, rmdir 'C:\Users\Иван\InPro\node_modules\keytar'] {
+npm warn cleanup       errno: -4082,
+npm warn cleanup       code: 'EBUSY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Иван\\InPro\\node_modules\\keytar'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code 1
+npm error path C:\Users\Иван\InPro\node_modules\better-sqlite3
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node-gyp rebuild
+npm error gyp info it worked if it ends with ok
+npm error gyp info using node-gyp@12.4.0
+npm error gyp info using node@24.19.0 | win32 | x64
+npm error (node:20380) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+npm error (Use `node --trace-deprecation ...` to show where the warning was created)
+npm error gyp ERR! find Python 
+npm error gyp ERR! find Python --python was not set on the command line
+npm error gyp ERR! find Python Python is not set from environment variable PYTHON
+npm error gyp ERR! find Python checking if the py launcher can be used to find Python 3
+npm error gyp ERR! find Python - executable path is ""
+npm error gyp ERR! find Python - "" could not be run
+npm error gyp ERR! find Python checking if "python3" can be used
+npm error gyp ERR! find Python - executable path is ""
+npm error gyp ERR! find Python - "" could not be run
+npm error gyp ERR! find Python checking if "python" can be used
+npm error gyp ERR! find Python - executable path is ""
+npm error gyp ERR! find Python - "" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python311\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python311\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python311\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python311\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python311-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python311-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python311-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python311-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files (x86)\Python311-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files (x86)\Python311-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python310\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python310\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python310\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python310\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python310-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python310-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python310-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python310-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files (x86)\Python310-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files (x86)\Python310-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python39\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python39\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python39\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python39\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python39-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python39-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python39-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python39-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files (x86)\Python39-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files (x86)\Python39-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python38\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python38\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python38\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python38\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Users\Иван\AppData\Local\Programs\Python\Python38-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Users\Иван\AppData\Local\Programs\Python\Python38-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files\Python38-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files\Python38-32\python.exe" could not be run
+npm error gyp ERR! find Python checking if Python is C:\Program Files (x86)\Python38-32\python.exe
+npm error gyp ERR! find Python - version is ""
+npm error gyp ERR! find Python - version is  - should be >=3.6.0
+npm error gyp ERR! find Python - THIS VERSION OF PYTHON IS NOT SUPPORTED
+npm error gyp ERR! find Python - "C:\Program Files (x86)\Python38-32\python.exe" could not be run
+npm error gyp ERR! find Python 
+npm error gyp ERR! find Python **********************************************************
+npm error gyp ERR! find Python You need to install the latest version of Python.
+npm error gyp ERR! find Python Node-gyp should be able to find and use Python. If not,
+npm error gyp ERR! find Python you can try one of the following options:
+npm error gyp ERR! find Python - Use the switch --python="C:\Path\To\python.exe"
+npm error gyp ERR! find Python (accepted by both node-gyp and npm)
+npm error gyp ERR! find Python - Set the environment variable PYTHON
+npm error gyp ERR! find Python For more information consult the documentation at:
+npm error gyp ERR! find Python https://github.com/nodejs/node-gyp#installation
+npm error gyp ERR! find Python **********************************************************
+npm error gyp ERR! find Python 
+npm error gyp ERR! configure error 
+npm error gyp ERR! stack Error: Could not find any Python installation to use
+npm error gyp ERR! stack at PythonFinder.fail (C:\Users\Иван\InPro\node_modules\node-gyp\lib\find-python.js:300:11)
+npm error gyp ERR! stack at PythonFinder.findPython (C:\Users\Иван\InPro\node_modules\node-gyp\lib\find-python.js:160:17)
+npm error gyp ERR! stack at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+npm error gyp ERR! stack at async configure (C:\Users\Иван\InPro\node_modules\node-gyp\lib\configure.js:27:18)
+npm error gyp ERR! stack at async run (C:\Users\Иван\InPro\node_modules\node-gyp\bin\node-gyp.js:81:18)
+npm error gyp ERR! System Windows_NT 10.0.26200
+npm error gyp ERR! command "C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\Иван\\InPro\\node_modules\\node-gyp\\bin\\node-gyp.js" "rebuild"
+npm error gyp ERR! cwd C:\Users\Иван\InPro\node_modules\better-sqlite3
+npm error gyp ERR! node -v v24.19.0
+npm error gyp ERR! node-gyp -v v12.4.0
+npm error gyp ERR! $npm_package_name better-sqlite3
+npm error gyp ERR! $npm_package_version 13.0.3
+npm error gyp ERR! not ok
+npm error A complete log of this run can be found in: C:\Users\Иван\AppData\Local\npm-cache\_logs\2026-09-08T11_18_15_488Z-debug-0.log
+=== npm install exit code: 1 ===
