@@ -12,16 +12,17 @@ export class PersonaView extends LitElement {
             outline:.5px rgba(255,255,255,.2) solid; outline-offset:-1px;
             position:relative; overflow:hidden; padding:12px; }
 
-        .close-button{position:absolute;top:8px;right:8px;inline-size:24px;block-size:24px;padding:0;
-            background:rgba(255,255,255,.1);border:none;border-radius:5px;
-            color:rgba(255,255,255,.75);display:grid;place-items:center;
-            font-size:16px;line-height:1;cursor:pointer;transition:.15s;z-index:20;
-            -webkit-app-region:no-drag;user-select:none;}
-        .close-button *{pointer-events:none;}
+        .titlebar{display:flex;align-items:center;gap:8px;margin:0 0 4px;padding-bottom:8px;
+            border-bottom:1px solid rgba(255,255,255,.1);}
+        .titlebar .spacer{inline-size:16px;flex:0 0 auto;}
+        .close-button{flex:0 0 auto;inline-size:16px;block-size:16px;padding:0;
+            background:rgba(255,255,255,.1);border:none;border-radius:3px;
+            color:rgba(255,255,255,.7);display:grid;place-items:center;
+            font-size:14px;line-height:0;cursor:pointer;transition:.15s;
+            -webkit-app-region:no-drag;}
         .close-button:hover{background:rgba(255,255,255,.22);color:#fff;}
 
-        .title{font-size:14px;font-weight:500;margin:0 0 4px;padding:0 40px 8px;
-            border-bottom:1px solid rgba(255,255,255,.1);text-align:center;
+        .title{flex:1 1 auto;font-size:14px;font-weight:500;margin:0;padding:2px 0;text-align:center;
             -webkit-app-region:drag;cursor:move;user-select:none;}
         .subtitle{font-size:11px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:8px;
             -webkit-app-region:drag;cursor:move;user-select:none;}
@@ -247,8 +248,11 @@ export class PersonaView extends LitElement {
 
         return html`
             <div class="container">
-                <button class="close-button" @click=${this.handleClose} title="Close">×</button>
-                <h1 class="title">My Profile &amp; Résumé</h1>
+                <div class="titlebar">
+                    <span class="spacer"></span>
+                    <h1 class="title">My Profile &amp; Résumé</h1>
+                    <button class="close-button" @click=${this.handleClose} title="Close">×</button>
+                </div>
                 <div class="subtitle">Answers are generated as if you were speaking, based on your real experience.</div>
 
                 <div class="scroll-area">
