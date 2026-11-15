@@ -14,6 +14,8 @@ export class AskView extends LitElement {
         headerText: { type: String },
         headerAnimating: { type: Boolean },
         isStreaming: { type: Boolean },
+        attachScreen: { type: Boolean },
+        includePersonalContext: { type: Boolean },
     };
 
     static styles = css`
@@ -487,7 +489,8 @@ export class AskView extends LitElement {
 
         .text-input-container {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            align-items: stretch;
             gap: 8px;
             padding: 12px 16px;
             background: rgba(0, 0, 0, 0.1);
@@ -510,8 +513,45 @@ export class AskView extends LitElement {
             border-top: none;
         }
 
+        .text-input-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .request-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 18px;
+            font-size: 12px;
+            line-height: 18px;
+            color: rgba(255, 255, 255, 0.85);
+            -webkit-app-region: no-drag;
+        }
+
+        .request-options label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .request-options input {
+            margin: 0;
+            flex-shrink: 0;
+            cursor: pointer;
+            accent-color: #a8c7fa;
+        }
+
+        .request-options input:focus-visible {
+            outline: 2px solid #a8c7fa;
+            outline-offset: 3px;
+        }
+
         #textInput {
             flex: 1;
+            min-width: 0;
             padding: 10px 14px;
             background: rgba(0, 0, 0, 0.2);
             border-radius: 20px;
@@ -721,6 +761,9 @@ export class AskView extends LitElement {
         this.headerText = 'AI Response';
         this.headerAnimating = false;
         this.isStreaming = false;
+        this.attachScreen = false;
+        this.includePersonalContext = true;
+        this.requestOptionsTouched = false;
 
         this.marked = null;
         this.hljs = null;
@@ -775,6 +818,11 @@ export class AskView extends LitElement {
         };
 
         if (window.api) {
+            window.api.askView.getRequestOptions().then(options => {
+                if (this.requestOptionsTouched) return;
+                this.attachScreen = options.attachScreen;
+                this.includePersonalContext = options.includePersonalContext;
+            }).catch(error => console.error('Failed to load Ask request options:', error));
             window.api.askView.onShowTextInput(() => {
                 console.log('Show text input signal received');
                 if (!this.showTextInput) {
@@ -792,6 +840,11 @@ export class AskView extends LitElement {
                 this.currentQuestion = newState.currentQuestion;
                 this.isLoading       = newState.isLoading;
                 this.isStreaming     = newState.isStreaming;
+                // A queued stream update must not undo a checkbox the user just changed.
+                if (!this.requestOptionsTouched) {
+                    this.attachScreen = newState.attachScreen;
+                    this.includePersonalContext = newState.includePersonalContext;
+                }
               
                 const wasHidden = !this.showTextInput;
                 this.showTextInput = newState.showTextInput;
@@ -883,6 +936,7 @@ export class AskView extends LitElement {
                 });
 
                 this.isLibrariesLoaded = true;
+                await this.updateComplete;
                 this.renderContent();
                 console.log('Markdown libraries loaded successfully in AskView');
             }
@@ -1287,6 +1341,15 @@ export class AskView extends LitElement {
         }
     }
 
+    handleRequestOptionChange(event) {
+        const { name, checked } = event.target;
+        this.requestOptionsTouched = true;
+        this[name] = checked;
+        window.api?.askView.setRequestOptions({ [name]: checked }).catch(error => {
+            console.error('Failed to update Ask request options:', error);
+        });
+    }
+
     async handleSendText(e, overridingText = '') {
         const textInput = this.shadowRoot?.getElementById('textInput');
         const text = (overridingText || textInput?.value || '').trim();
@@ -1295,7 +1358,10 @@ export class AskView extends LitElement {
         textInput.value = '';
 
         if (window.api) {
-            window.api.askView.sendMessage(text).catch(error => {
+            window.api.askView.sendMessage(text, {
+                attachScreen: this.attachScreen,
+                includePersonalContext: this.includePersonalContext,
+            }).catch(error => {
                 console.error('Error sending text:', error);
             });
         }
@@ -1409,23 +1475,35 @@ export class AskView extends LitElement {
                 </div>
 
                 <!-- Text Input Container -->
-                <div class="text-input-container ${!hasResponse ? 'no-response' : ''} ${!this.showTextInput ? 'hidden' : ''}">
-                    <input
-                        type="text"
-                        id="textInput"
-                        placeholder="Ask about your screen or audio"
-                        @keydown=${this.handleTextKeydown}
-                        @focus=${this.handleInputFocus}
-                    />
-                    <button
-                        class="submit-btn"
-                        @click=${this.handleSendText}
-                    >
-                        <span class="btn-label">Submit</span>
-                        <span class="btn-icon">
-                            ↵
-                        </span>
-                    </button>
+                <div class="text-input-container ${!hasResponse ? 'no-response' : ''} ${!this.showTextInput ? 'hidden' : ''}" ?inert=${!this.showTextInput}>
+                    <div class="text-input-row">
+                        <input
+                            type="text"
+                            id="textInput"
+                            placeholder=${this.attachScreen ? 'Ask about your screen or audio' : 'Ask a question or use the conversation'}
+                            @keydown=${this.handleTextKeydown}
+                            @focus=${this.handleInputFocus}
+                        />
+                        <button
+                            class="submit-btn"
+                            @click=${this.handleSendText}
+                        >
+                            <span class="btn-label">Submit</span>
+                            <span class="btn-icon">
+                                ↵
+                            </span>
+                        </button>
+                    </div>
+                    <div class="request-options" role="group" aria-label="Что отправлять вместе с вопросом">
+                        <label title="При включении к каждому вопросу добавляется новый скриншот экрана.">
+                            <input type="checkbox" name="attachScreen" .checked=${this.attachScreen} @change=${this.handleRequestOptionChange} />
+                            Прикрепить экран
+                        </label>
+                        <label title="Для общих вопросов снимите галочку. Язык, уровень и инструкции сохраняются; уже сказанное в диалоге остаётся в запросе.">
+                            <input type="checkbox" name="includePersonalContext" .checked=${this.includePersonalContext} @change=${this.handleRequestOptionChange} />
+                            Использовать резюме, кейсы и вакансию
+                        </label>
+                    </div>
                 </div>
             </div>
         `;

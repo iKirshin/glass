@@ -8,10 +8,21 @@ import { getUserProfile, updateUserProfile, getModelSettings, ModelSettings, Mod
 const formatPrice = (m?: ModelOption) => {
   const p = m?.pricing
   if (!p) return ''
+  if (p.priceUnconfirmed) return 'Price unconfirmed'
   if (p.free) return 'free · local'
   if (p.perMinute !== undefined) return `$${p.perMinute}/min`
   if (p.input !== undefined) return `$${p.input} / $${p.output} per 1M`
   return ''
+}
+
+const priceTitle = (m?: ModelOption) => {
+  const p = m?.pricing
+  if (!p) return ''
+  return [
+    p.input !== undefined ? 'USD per 1M input / output tokens; standard API, without cache or Batch discounts. Output includes reasoning tokens.' : '',
+    p.verifiedAt ? `Prices checked ${p.verifiedAt}; reference prices, not a request cost estimate.` : '',
+    p.note, p.source,
+  ].filter(Boolean).join('\n')
 }
 
 export default function SettingsPage() {
@@ -98,7 +109,8 @@ export default function SettingsPage() {
                   <div className="rounded-md border border-gray-200 p-4">
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-1"><Cpu className="h-4 w-4" /> Answers (LLM)</div>
                     <div className="text-gray-900">{llm ? llm.name : models.selectedModels.llm || 'Not selected'}</div>
-                    <div className="text-xs text-gray-500">{llm?.id}{formatPrice(llm) ? ` · ${formatPrice(llm)}` : ''}</div>
+                    <div className="text-xs text-gray-500" title={priceTitle(llm)}>{llm?.id}{formatPrice(llm) ? ` · ${formatPrice(llm)}` : ''}</div>
+                    {llm?.legacy && <div className="text-xs text-gray-500">Previous generation · saved selection</div>}
                   </div>
                   <div className="rounded-md border border-gray-200 p-4">
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-1"><Mic className="h-4 w-4" /> Speech recognition (STT)</div>

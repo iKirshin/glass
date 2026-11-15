@@ -77,7 +77,7 @@ class WhisperSTTSession extends EventEmitter {
                 '--no-timestamps',
                 '--output-txt',
                 '--output-json',
-                '--language', 'auto',
+                '--language', this.language || 'auto',
                 '--threads', '4',
                 '--print-progress', 'false'
             ]);
@@ -201,6 +201,7 @@ class WhisperProvider {
         // Create unique session ID based on type
         const sessionId = `${sessionType}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
         const session = new WhisperSTTSession(model, this.whisperService, sessionId);
+        session.language = config.language && config.language !== 'multi' ? config.language.split('-')[0] : 'auto';
         
         // Log session creation
         console.log(`[WhisperProvider] Created session: ${sessionId}`);

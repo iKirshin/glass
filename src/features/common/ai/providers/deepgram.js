@@ -38,7 +38,7 @@ class DeepgramProvider {
 
 function createSTT({
     apiKey,
-    language = 'en-US',
+    language = 'multi',
     sampleRate = 24000,
     callbacks = {},
   }) {
@@ -49,6 +49,7 @@ function createSTT({
       language,
       smart_format: 'true',
       interim_results: 'true',
+      endpointing: '100',
       channels: '1',
     });
   

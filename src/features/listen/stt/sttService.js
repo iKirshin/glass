@@ -2,6 +2,7 @@ const { BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
 const { createSTT } = require('../../common/ai/factory');
 const modelStateService = require('../../common/services/modelStateService');
+const { normalizeSttLanguage } = require('../../common/config/sttLanguages');
 
 const COMPLETION_DEBOUNCE_MS = 2000;
 
@@ -64,7 +65,7 @@ class SttService {
         this.micChunks = 0;               // mic chunks received since the last [SystemAudio] report
         this.micBytes = 0;
         this.micRateWarned = false;
-        this.currentLanguage = 'en';
+        this.currentLanguage = 'multi';
         this.themFilter = null;           // speech band-pass + limiter for the "Them" channel (null = off)
         this.lastSttStallRecoveryAt = 0;
 
@@ -183,18 +184,20 @@ class SttService {
         this.theirCompletionTimer = setTimeout(() => this.flushTheirCompletion(), COMPLETION_DEBOUNCE_MS);
     }
 
-    async initializeSttSessions(language = 'en') {
-        this.currentLanguage = language || 'en';
+    async initializeSttSessions(language) {
+        // Read the persisted choice once per Listen session. Renewals reuse it.
+        const selectedLanguage = language || require('../../settings/repositories').getSttLanguage();
+        this.currentLanguage = normalizeSttLanguage(selectedLanguage);
         this.themFilter = this._isThemFilterEnabled() ? new SpeechBandFilter() : null;
         console.log(`[SttService] "Them" audio filter: ${this.themFilter ? 'on (250–3800 Hz band-pass + limiter)' : 'off'}`);
-        const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'en';
+        const effectiveLanguage = this.currentLanguage;
 
         const modelInfo = await modelStateService.getCurrentModelInfo('stt');
         if (!modelInfo || !modelInfo.apiKey) {
             throw new Error('AI model or API key is not configured.');
         }
         this.modelInfo = modelInfo;
-        console.log(`[SttService] Initializing STT for ${modelInfo.provider} using model ${modelInfo.model}`);
+        console.log(`[SttService] Initializing STT for ${modelInfo.provider} using model ${modelInfo.model}, language=${effectiveLanguage}`);
 
         const handleMyMessage = message => {
             if (!this.modelInfo) {
@@ -521,7 +524,7 @@ class SttService {
         this.sessionRenewTimeout = setTimeout(async () => {
             try {
                 console.log('[SttService] Auto-renewing STT sessions…');
-                await this.renewSessions(language);
+                await this.renewSessions(effectiveLanguage);
             } catch (err) {
                 console.error('[SttService] Failed to renew STT sessions:', err);
             }
@@ -552,7 +555,7 @@ class SttService {
      * Gracefully tears down then recreates the STT sessions. Should be invoked
      * on a timer to avoid provider-side hard timeouts.
      */
-    async renewSessions(language = 'en') {
+    async renewSessions(language = this.currentLanguage) {
         if (!this.isSessionActive()) {
             console.warn('[SttService] renewSessions called but no active session.');
             return;
@@ -660,10 +663,7 @@ class SttService {
         if (!cleaned) return '';
         const letters = (cleaned.match(/\p{L}/gu) || []).length;
         if (letters < 2) return '';
-        if ((this.currentLanguage || 'en').startsWith('en') && !/[A-Za-z]/.test(cleaned)) {
-            console.log(`[SttService] Dropped non-English junk from ${speaker}: "${cleaned}"`);
-            return '';
-        }
+        // A different script is not noise: bilingual answers can contain Cyrillic.
 
         const now = Date.now();
         if (speaker === 'Them') {
@@ -1080,4 +1080,4 @@ class SttService {
     }
 }
 
-module.exports = SttService; 
+module.exports = SttService;

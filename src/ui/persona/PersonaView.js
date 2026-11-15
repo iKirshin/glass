@@ -5,14 +5,15 @@ export class PersonaView extends LitElement {
         * { font-family:'Helvetica Neue',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
             box-sizing:border-box; }
 
-        :host { display:flex; width:100%; height:100%; color:white; }
+        /* The shared content shell has auto height; percentages would grow with the form. */
+        :host { display:flex; width:100%; height:100vh; min-height:0; color:white; }
 
         .container { display:flex; flex-direction:column; height:100%; width:100%;
             background:rgba(20,20,20,.92); border-radius:12px;
             outline:.5px rgba(255,255,255,.2) solid; outline-offset:-1px;
             position:relative; overflow:hidden; padding:12px; }
 
-        .titlebar{display:flex;align-items:center;gap:8px;margin:0 0 4px;padding-bottom:8px;
+        .titlebar{flex:0 0 auto;display:flex;align-items:center;gap:8px;margin:0 0 4px;padding-bottom:8px;
             border-bottom:1px solid rgba(255,255,255,.1);}
         .titlebar .spacer{inline-size:16px;flex:0 0 auto;}
         .close-button{flex:0 0 auto;inline-size:16px;block-size:16px;padding:0;
@@ -24,10 +25,17 @@ export class PersonaView extends LitElement {
 
         .title{flex:1 1 auto;font-size:14px;font-weight:500;margin:0;padding:2px 0;text-align:center;
             -webkit-app-region:drag;cursor:move;user-select:none;}
-        .subtitle{font-size:11px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:8px;
+        .subtitle{flex:0 0 auto;font-size:11px;color:rgba(255,255,255,.55);text-align:center;margin-bottom:8px;
             -webkit-app-region:drag;cursor:move;user-select:none;}
 
-        .scroll-area{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -4px;padding:4px;display:flex;flex-direction:column;gap:10px;}
+        .scroll-area{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -4px;padding:4px;
+            display:flex;flex-direction:column;gap:10px;scrollbar-gutter:stable;scroll-padding:4px;}
+        .scroll-area > *{flex-shrink:0;}
+        .scroll-area:focus-visible{outline:1px solid rgba(0,122,255,.7);outline-offset:-1px;}
+        .scroll-area::-webkit-scrollbar{width:8px;}
+        .scroll-area::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:4px;}
+        .scroll-area::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:4px;}
+        .scroll-area::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.45);}
 
         .field{display:flex;flex-direction:column;gap:4px;}
         .row{display:flex;gap:8px;}
@@ -81,7 +89,7 @@ export class PersonaView extends LitElement {
     constructor() {
         super();
         this.profile = this._emptyProfile();
-        this.options = { competenceModes: [], languageLevels: [], maxResumeChars: 40000, supportedExtensions: [] };
+        this.options = { competenceModes: [], languageLevels: [], maxResumeChars: 40000, maxJobDescriptionChars: 20000, maxCaseStudiesChars: 30000, supportedExtensions: [] };
         this.status = null;
         this.busy = false;
         this.dirty = false;
@@ -94,12 +102,16 @@ export class PersonaView extends LitElement {
             enabled: true,
             displayName: '',
             targetRole: '',
+            jobDescription: '',
+            caseStudies: '',
             resumeText: '',
             resumeFileName: '',
             competenceMode: 'balanced',
             expertiseNotes: '',
             languageLevel: 'native',
             answerLanguage: '',
+            answerLanguageMode: 'question',
+            knownLanguages: [],
             extraInstructions: '',
         };
     }
@@ -110,12 +122,16 @@ export class PersonaView extends LitElement {
             enabled: row.enabled === null || row.enabled === undefined ? true : !!row.enabled,
             displayName: row.display_name || '',
             targetRole: row.target_role || '',
+            jobDescription: row.job_description || '',
+            caseStudies: row.case_studies || '',
             resumeText: row.resume_text || '',
             resumeFileName: row.resume_file_name || '',
             competenceMode: row.competence_mode || 'balanced',
             expertiseNotes: row.expertise_notes || '',
             languageLevel: row.language_level || 'native',
             answerLanguage: row.answer_language || '',
+            answerLanguageMode: row.answer_language_mode || (row.answer_language ? 'fixed' : 'question'),
+            knownLanguages: row.known_languages || (row.answer_language ? [{ language: row.answer_language, level: row.language_level || 'native' }] : []),
             extraInstructions: row.extra_instructions || '',
         };
     }
@@ -146,6 +162,10 @@ export class PersonaView extends LitElement {
         this._setStatus(null);
     }
 
+    _updateKnownLanguage(index, field, value) {
+        this._update('knownLanguages', this.profile.knownLanguages.map((entry, i) => i === index ? { ...entry, [field]: value } : entry));
+    }
+
     async handleImportFile() {
         this.busy = true;
         try {
@@ -161,6 +181,27 @@ export class PersonaView extends LitElement {
                 );
             } else if (!result?.canceled) {
                 this._setStatus(result?.error || 'Could not read the file', 'error');
+            }
+        } catch (error) {
+            this._setStatus(error.message, 'error');
+        } finally {
+            this.busy = false;
+        }
+    }
+
+    async handleImportCasesFile() {
+        if (this.profile.caseStudies.trim() && !confirm('Replace the interview cases in this form? The saved version stays unchanged until you click Save.')) return;
+        this.busy = true;
+        this._setStatus('Loading interview cases…');
+        try {
+            const result = await window.api.personaView.importCasesFile();
+            if (result?.success) {
+                this._update('caseStudies', result.text);
+                this._setStatus(`Loaded ${result.fileName}. Review the cases, then Save.${result.truncated ? ' The text exceeds the model context limit.' : ''}`, 'ok');
+            } else if (result?.canceled) {
+                this._setStatus(null);
+            } else {
+                this._setStatus(result?.error || 'Could not read the cases file', 'error');
             }
         } catch (error) {
             this._setStatus(error.message, 'error');
@@ -207,6 +248,7 @@ export class PersonaView extends LitElement {
                 resume_file_name: this.profile.resumeFileName,
             });
             if (result?.success) {
+                if (result.profile) this.profile = this._fromRow(result.profile);
                 this.dirty = false;
                 this.resumeBackup = null;
                 this._setStatus('Saved. New answers will use this profile.', 'ok');
@@ -221,7 +263,7 @@ export class PersonaView extends LitElement {
     }
 
     async handleClear() {
-        if (!confirm('Remove the saved profile and résumé?')) return;
+        if (!confirm('Remove the saved profile, résumé and interview cases?')) return;
         this.busy = true;
         try {
             await window.api.personaView.deleteProfile();
@@ -236,6 +278,7 @@ export class PersonaView extends LitElement {
     }
 
     handleClose() {
+        if (this.dirty && !confirm('Close without saving your profile changes?')) return;
         window.api.personaView.closeWindow();
     }
 
@@ -244,6 +287,10 @@ export class PersonaView extends LitElement {
         const max = this.options.maxResumeChars || 40000;
         const len = p.resumeText.length;
         const tooLong = len > max;
+        const jobMax = this.options.maxJobDescriptionChars || 20000;
+        const jobLen = p.jobDescription.length;
+        const casesMax = this.options.maxCaseStudiesChars || 30000;
+        const casesLen = p.caseStudies.length;
         const exts = (this.options.supportedExtensions || []).filter(e => ['pdf', 'docx', 'txt', 'md'].includes(e)).map(e => e.toUpperCase()).join(', ');
 
         return html`
@@ -255,7 +302,7 @@ export class PersonaView extends LitElement {
                 </div>
                 <div class="subtitle">Answers are generated as if you were speaking, based on your real experience.</div>
 
-                <div class="scroll-area">
+                <div class="scroll-area" role="region" aria-label="Profile settings" tabindex="0">
                     <label class="toggle">
                         <input type="checkbox" .checked=${p.enabled} @change=${e => this._update('enabled', e.target.checked)}>
                         Use this profile when generating answers
@@ -276,6 +323,19 @@ export class PersonaView extends LitElement {
 
                     <div class="field">
                         <div class="resume-toolbar">
+                            <label for="job-description">Job description (optional)</label>
+                            <span class="resume-meta ${jobLen > jobMax ? 'warn' : ''}">${jobLen.toLocaleString()} / ${jobMax.toLocaleString()} chars</span>
+                        </div>
+                        <textarea id="job-description" .value=${p.jobDescription}
+                            aria-describedby="job-description-hint"
+                            placeholder="Paste the vacancy: responsibilities, requirements, product and company context."
+                            @input=${e => this._update('jobDescription', e.target.value)}></textarea>
+                        <div id="job-description-hint" class="hint">Matches real examples to the vacancy. Without a vacancy, answers draw on 3–5 strong achievements from your résumé and cases, one relevant example at a time. Stored locally; included in requests to your selected AI model when this profile is enabled.</div>
+                        ${jobLen > jobMax ? html`<div class="hint">Only the first ${jobMax.toLocaleString()} characters of the job description are sent to the model. The full text is saved.</div>` : ''}
+                    </div>
+
+                    <div class="field">
+                        <div class="resume-toolbar">
                             <label>Résumé / experience</label>
                             <button class="btn" ?disabled=${this.busy || this.optimizing} @click=${this.handleImportFile}>Load file…</button>
                             <button class="btn" title="Condense the résumé with the selected LLM, keeping only what matters for interview answers"
@@ -289,6 +349,23 @@ export class PersonaView extends LitElement {
                             placeholder="Paste your résumé here or load a file (${exts}). Roles, projects, tools, results, numbers — the more concrete, the better the answers."
                             @input=${e => this._update('resumeText', e.target.value)}></textarea>
                         ${tooLong ? html`<div class="hint">Only the first ${max.toLocaleString()} characters are sent to the model. Consider trimming older or less relevant parts.</div>` : ''}
+                    </div>
+
+                    <div class="field">
+                        <div class="resume-toolbar">
+                            <label for="case-studies">Interview cases (optional)</label>
+                            <button class="btn" ?disabled=${this.busy || this.optimizing}
+                                @click=${this.handleImportCasesFile}>Load cases…</button>
+                            <span class="resume-meta ${casesLen > casesMax ? 'warn' : ''}">${casesLen.toLocaleString()} / ${casesMax.toLocaleString()} chars</span>
+                        </div>
+                        <textarea id="case-studies" class="resume" .value=${p.caseStudies}
+                            aria-describedby="case-studies-hint case-studies-limit"
+                            placeholder="Add confirmed stories: context, evidence, your contribution, choices and constraints, results. Label unknown details and hypothetical calculations clearly."
+                            @input=${e => this._update('caseStudies', e.target.value)}></textarea>
+                        <div id="case-studies-hint" class="hint">Saved separately from your résumé; Optimize does not change these cases. Ask selects one relevant example. Explicit corrections take priority over older résumé summaries; drafts and assumptions are not achievements. Stored locally and sent to your selected AI model when this profile is enabled.</div>
+                        <div id="case-studies-limit" class="hint">${casesLen > casesMax
+                            ? `Only the first ${casesMax.toLocaleString()} characters are sent to the model. The full text is saved; shorten it to keep all qualifications in context.`
+                            : 'Include only facts you can explain in an interview, with baselines and limitations.'}</div>
                     </div>
 
                     <div class="field">
@@ -306,24 +383,55 @@ export class PersonaView extends LitElement {
                             @input=${e => this._update('expertiseNotes', e.target.value)}></textarea>
                     </div>
 
-                    <div class="row">
-                        <div class="field">
-                            <label>Language level (CEFR)</label>
-                            <select .value=${p.languageLevel} @change=${e => this._update('languageLevel', e.target.value)}>
-                                ${this.options.languageLevels.map(l => html`<option value=${l.id} ?selected=${l.id === p.languageLevel}>${l.label}</option>`)}
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label>Answer language (optional)</label>
-                            <input type="text" .value=${p.answerLanguage} placeholder="e.g. English (default: same as question)"
-                                @input=${e => this._update('answerLanguage', e.target.value)}>
-                        </div>
+                    <div class="field">
+                        <label for="answer-language-mode">Answer language</label>
+                        <select id="answer-language-mode" .value=${p.answerLanguageMode} @change=${e => this._update('answerLanguageMode', e.target.value)}>
+                            <option value="question" ?selected=${p.answerLanguageMode === 'question'}>Same as the question</option>
+                            <option value="fixed" ?selected=${p.answerLanguageMode === 'fixed'}>Always use one language</option>
+                        </select>
+                        ${p.answerLanguageMode === 'fixed' ? html`
+                            <label for="answer-language">Fixed language</label>
+                            <input id="answer-language" type="text" .value=${p.answerLanguage} placeholder="e.g. English"
+                                @input=${e => this._update('answerLanguage', e.target.value)}>` : ''}
+                        <div class="hint">Follows each new question, including switches between English and Russian. Recognition language is set separately in Settings.</div>
                     </div>
-                    <div class="hint">B1/B2/C1 make the wording match how you actually speak the language: simpler vocabulary, shorter sentences, natural non-native phrasing.</div>
 
                     <div class="field">
-                        <label>Extra instructions (optional)</label>
-                        <textarea .value=${p.extraInstructions}
+                        <label>Languages I know</label>
+                        ${p.knownLanguages.map((entry, index) => html`
+                            <div class="row">
+                                <div class="field">
+                                    <label for=${`known-language-${index}`}>Language ${index + 1}</label>
+                                    <input id=${`known-language-${index}`} type="text" maxlength="60" .value=${entry.language}
+                                        placeholder="e.g. English, Russian, Portuguese"
+                                        @input=${e => this._updateKnownLanguage(index, 'language', e.target.value)}>
+                                </div>
+                                <div class="field">
+                                    <label for=${`known-level-${index}`}>Your level</label>
+                                    <select id=${`known-level-${index}`} .value=${entry.level}
+                                        @change=${e => this._updateKnownLanguage(index, 'level', e.target.value)}>
+                                        <option value="" ?selected=${!entry.level}>Choose level</option>
+                                        ${this.options.languageLevels.map(l => html`<option value=${l.id} ?selected=${l.id === entry.level}>${l.label}</option>`)}
+                                    </select>
+                                </div>
+                                <button class="btn" aria-label=${`Remove language ${index + 1}`}
+                                    @click=${() => this._update('knownLanguages', p.knownLanguages.filter((_, i) => i !== index))}>×</button>
+                            </div>`)}
+                        <button class="btn" ?disabled=${p.knownLanguages.length >= (this.options.maxKnownLanguages || 12)}
+                            @click=${() => this._update('knownLanguages', [...p.knownLanguages, { language: '', level: '' }])}>Add language</button>
+                        <div class="hint">Each answer uses the level for its language: for example, English B2 and Russian Native. These are examples, not assumed levels. Vocabulary changes, not your experience or reasoning.</div>
+                    </div>
+                    <div class="field">
+                        <label for="default-language-level">Default style for languages without a level</label>
+                        <select id="default-language-level" .value=${p.languageLevel} @change=${e => this._update('languageLevel', e.target.value)}>
+                            ${this.options.languageLevels.map(l => html`<option value=${l.id} ?selected=${l.id === p.languageLevel}>${l.label}</option>`)}
+                        </select>
+                        <div class="hint">Used only when the answer language is not listed above. Does not claim that you know an unlisted language.</div>
+                    </div>
+
+                    <div class="field">
+                        <label for="extra-instructions">Extra instructions (optional)</label>
+                        <textarea id="extra-instructions" .value=${p.extraInstructions}
                             placeholder="e.g. Keep answers under 40 seconds of speech. Always mention measurable results. Avoid corporate buzzwords."
                             @input=${e => this._update('extraInstructions', e.target.value)}></textarea>
                     </div>
@@ -332,7 +440,7 @@ export class PersonaView extends LitElement {
                 <div class="footer">
                     <button class="btn danger" ?disabled=${this.busy} @click=${this.handleClear}>Clear</button>
                     <span class="spacer"></span>
-                    ${this.status ? html`<span class="status ${this.status.kind}">${this.status.text}</span>` : ''}
+                    <span class="status ${this.status?.kind || ''}" role="status" aria-live="polite">${this.status?.text || ''}</span>
                     <button class="btn primary" ?disabled=${this.busy || !this.dirty} @click=${this.handleSave}>Save</button>
                 </div>
             </div>

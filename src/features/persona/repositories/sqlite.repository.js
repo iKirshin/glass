@@ -1,8 +1,9 @@
 const sqliteClient = require('../../common/services/sqliteClient');
 
 const COLUMNS = [
-    'enabled', 'display_name', 'target_role', 'resume_text', 'resume_file_name',
+    'enabled', 'display_name', 'target_role', 'job_description', 'case_studies', 'resume_text', 'resume_file_name',
     'competence_mode', 'expertise_notes', 'language_level', 'answer_language', 'extra_instructions',
+    'answer_language_mode', 'known_languages',
 ];
 
 function getProfile(uid) {

@@ -99,20 +99,14 @@ class WindowLayoutManager {
         const currentBounds = header.getBounds();
         const centerX = currentBounds.x + currentBounds.width / 2;
         const newX = Math.round(centerX - width / 2);
-        const display = getCurrentDisplay(header);
-        const { x: workAreaX, width: workAreaWidth } = display.workArea;
-        const clampedX = Math.max(workAreaX, Math.min(workAreaX + workAreaWidth - width, newX));
-        return { x: clampedX, y: currentBounds.y, width, height };
+        return { x: newX, y: currentBounds.y, width, height };
     }
     
-    calculateClampedPosition(header, { x: newX, y: newY }) {
-        if (!header) return null;
-        const targetDisplay = screen.getDisplayNearestPoint({ x: newX, y: newY });
-        const { x: workAreaX, y: workAreaY, width, height } = targetDisplay.workArea;
-        const headerBounds = header.getBounds();
-        const clampedX = Math.max(workAreaX, Math.min(newX, workAreaX + width - headerBounds.width));
-        const clampedY = Math.max(workAreaY, Math.min(newY, workAreaY + height - headerBounds.height));
-        return { x: clampedX, y: clampedY };
+    calculateManualPosition(header, { x, y }) {
+        if (!header || header.isDestroyed() || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+        // Dragging and arrow shortcuts honor the user's position, including offscreen.
+        // Only explicit edge/display commands bring a window back into the work area.
+        return { x: Math.round(x), y: Math.round(y) };
     }
     
     calculateWindowHeightAdjustment(senderWindow, targetHeight) {
@@ -147,6 +141,8 @@ class WindowLayoutManager {
         }
     
         const { width: screenWidth, height: screenHeight, x: workAreaX, y: workAreaY } = display.workArea;
+        const headerOutsideHorizontally = headerBounds.x < workAreaX
+            || headerBounds.x + headerBounds.width > workAreaX + screenWidth;
     
         const ask = this.windowPool.get('ask');
         const listen = this.windowPool.get('listen');
@@ -181,11 +177,11 @@ class WindowLayoutManager {
             let askXRel = headerCenterXRel - (askB.width / 2);
             let listenXRel = askXRel - listenB.width - PAD;
     
-            if (listenXRel < PAD) {
+            if (!headerOutsideHorizontally && listenXRel < PAD) {
                 listenXRel = PAD;
                 askXRel = listenXRel + listenB.width + PAD;
             }
-            if (askXRel + askB.width > screenWidth - PAD) {
+            if (!headerOutsideHorizontally && askXRel + askB.width > screenWidth - PAD) {
                 askXRel = screenWidth - PAD - askB.width;
                 listenXRel = askXRel - listenB.width - PAD;
             }
@@ -205,7 +201,9 @@ class WindowLayoutManager {
             if (!winB) return {};
     
             let xRel = headerCenterXRel - winB.width / 2;
-            xRel = Math.max(PAD, Math.min(screenWidth - winB.width - PAD, xRel));
+            if (!headerOutsideHorizontally) {
+                xRel = Math.max(PAD, Math.min(screenWidth - winB.width - PAD, xRel));
+            }
     
             let yPos;
             if (strategy.primary === 'above') {
@@ -227,14 +225,18 @@ class WindowLayoutManager {
         const headerBounds = header.getBounds();
         const shortcutBounds = shortcutSettings.getBounds();
         const { workArea } = getCurrentDisplay(header);
+        // Opening a settings dialog should remain safe on smaller displays even
+        // though subsequent manual movement is allowed outside the screen.
+        const width = Math.min(shortcutBounds.width, workArea.width);
+        const height = Math.min(shortcutBounds.height, workArea.height);
     
-        let newX = Math.round(headerBounds.x + (headerBounds.width / 2) - (shortcutBounds.width / 2));
+        let newX = Math.round(headerBounds.x + (headerBounds.width / 2) - (width / 2));
         let newY = Math.round(headerBounds.y);
     
-        newX = Math.max(workArea.x, Math.min(newX, workArea.x + workArea.width - shortcutBounds.width));
-        newY = Math.max(workArea.y, Math.min(newY, workArea.y + workArea.height - shortcutBounds.height));
+        newX = Math.max(workArea.x, Math.min(newX, workArea.x + workArea.width - width));
+        newY = Math.max(workArea.y, Math.min(newY, workArea.y + workArea.height - height));
     
-        return { x: newX, y: newY, width: shortcutBounds.width, height: shortcutBounds.height };
+        return { x: newX, y: newY, width, height };
     }
 
     calculateStepMovePosition(header, direction) {
@@ -251,7 +253,7 @@ class WindowLayoutManager {
             case 'down': targetY += stepSize; break;
         }
     
-        return this.calculateClampedPosition(header, { x: targetX, y: targetY });
+        return this.calculateManualPosition(header, { x: targetX, y: targetY });
     }
     
     calculateEdgePosition(header, direction) {
@@ -269,7 +271,11 @@ class WindowLayoutManager {
             case 'up': targetY = workArea.y; break;
             case 'down': targetY = workArea.y + workArea.height - currentBounds.height; break;
         }
-        return { x: targetX, y: targetY };
+        // An explicit snap also recovers the other axis if the user hid the window.
+        return {
+            x: Math.max(workArea.x, Math.min(targetX, workArea.x + workArea.width - currentBounds.width)),
+            y: Math.max(workArea.y, Math.min(targetY, workArea.y + workArea.height - currentBounds.height)),
+        };
     }
     
     calculateNewPositionForDisplay(window, targetDisplayId) {
@@ -280,8 +286,6 @@ class WindowLayoutManager {
     
         const currentBounds = window.getBounds();
         const currentDisplay = getCurrentDisplay(window);
-    
-        if (currentDisplay.id === targetDisplay.id) return { x: currentBounds.x, y: currentBounds.y };
     
         const relativeX = (currentBounds.x - currentDisplay.workArea.x) / currentDisplay.workArea.width;
         const relativeY = (currentBounds.y - currentDisplay.workArea.y) / currentDisplay.workArea.height;

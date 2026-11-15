@@ -1,6 +1,6 @@
 const { Anthropic } = require("@anthropic-ai/sdk")
 
-const DEFAULT_MODEL = "claude-opus-5"
+const DEFAULT_MODEL = "claude-sonnet-5-5"
 
 // Claude Opus 4.7+ / Sonnet 5 / Opus 5 / Fable reject sampling params (temperature,
 // top_p, top_k). Only older generations still accept them.
@@ -20,6 +20,11 @@ function buildMessageParams({ model, maxTokens, temperature, systemPrompt, messa
   }
   if (supportsTemperature(model) && typeof temperature === "number") {
     params.temperature = temperature
+  }
+  // 5.5 enables adaptive thinking by default. Low effort suits short, live
+  // interview answers; never send the now-invalid disabled/budget_tokens modes.
+  if (/^claude-(opus|sonnet|haiku)-5-5(?:-|$)/.test(model || "")) {
+    params.output_config = { effort: "low" }
   }
   if (stream) params.stream = true
   return params
@@ -96,7 +101,7 @@ async function createSTT({ apiKey, language = "en", callbacks = {}, ...config })
  * Creates an Anthropic LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
- * @param {string} [opts.model='claude-opus-5'] - Model name
+ * @param {string} [opts.model='claude-sonnet-5-5'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} LLM instance
@@ -213,7 +218,7 @@ function createLLM({ apiKey, model = DEFAULT_MODEL, temperature = 0.7, maxTokens
  * Creates an Anthropic streaming LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
- * @param {string} [opts.model='claude-opus-5'] - Model name
+ * @param {string} [opts.model='claude-sonnet-5-5'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} Streaming LLM instance

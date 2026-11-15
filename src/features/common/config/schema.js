@@ -8,6 +8,7 @@ const LATEST_SCHEMA = {
             { name: 'auto_update_enabled', type: 'INTEGER DEFAULT 1' },
             { name: 'record_listen_sessions', type: 'INTEGER DEFAULT 1' },
             { name: 'filter_them_audio', type: 'INTEGER DEFAULT 1' },
+            { name: 'stt_language', type: "TEXT DEFAULT 'multi'" },
             { name: 'has_migrated_to_firebase', type: 'INTEGER DEFAULT 0' }
         ]
     },
@@ -110,12 +111,16 @@ const LATEST_SCHEMA = {
             { name: 'enabled', type: 'INTEGER DEFAULT 1' },
             { name: 'display_name', type: 'TEXT' },
             { name: 'target_role', type: 'TEXT' },
+            { name: 'job_description', type: 'TEXT' },
+            { name: 'case_studies', type: 'TEXT' },
             { name: 'resume_text', type: 'TEXT' },
             { name: 'resume_file_name', type: 'TEXT' },
             { name: 'competence_mode', type: 'TEXT DEFAULT \'balanced\'' },
             { name: 'expertise_notes', type: 'TEXT' },
             { name: 'language_level', type: 'TEXT DEFAULT \'native\'' },
             { name: 'answer_language', type: 'TEXT' },
+            { name: 'answer_language_mode', type: 'TEXT' },
+            { name: 'known_languages', type: 'TEXT' },
             { name: 'extra_instructions', type: 'TEXT' },
             { name: 'updated_at', type: 'INTEGER' }
         ]
@@ -135,4 +140,4 @@ const LATEST_SCHEMA = {
     }
 };
 
-module.exports = LATEST_SCHEMA; 
+module.exports = LATEST_SCHEMA;

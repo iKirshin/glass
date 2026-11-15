@@ -7,6 +7,8 @@ function getBaseRepository() {
 }
 
 const settingsRepositoryAdapter = {
+    getSttLanguage: () => getBaseRepository().getSttLanguage(authService.getCurrentUserId()),
+    setSttLanguage: (language) => getBaseRepository().setSttLanguage(authService.getCurrentUserId(), language),
     getPresets: () => {
         const uid = authService.getCurrentUserId();
         return getBaseRepository().getPresets(uid);

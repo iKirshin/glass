@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 const WebSocket = require('ws');
 const { Readable } = require('stream');
-const { getProviderForModel } = require('../factory.js');
+const { normalizeLlmModelId } = require('../factory.js');
 
 // GPT-5 / GPT-6 / o-series models are reasoning models: they reject `temperature`
 // and require `max_completion_tokens` instead of `max_tokens`.
@@ -16,7 +16,7 @@ function isReasoningModel(model) {
  * (gpt-4.1, gpt-4o) and reasoning (gpt-5.x, o-series) models.
  */
 function buildChatParams({ model, messages, temperature, maxTokens, stream = false }) {
-  const params = { model, messages };
+  const params = { model: normalizeLlmModelId(model), messages };
   if (isReasoningModel(model)) {
     params.max_completion_tokens = maxTokens;
     params.reasoning_effort = 'low'; // keep latency low for a real-time assistant
@@ -87,7 +87,7 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, model = 'gpt
               transcription: {
                 model: model,
                 prompt: config.prompt || '',
-                language: language || 'en',
+                ...(language && language !== 'multi' ? { language: language.split('-')[0] } : {}),
               },
               turn_detection: {
                 type: 'server_vad',
@@ -172,12 +172,12 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, model = 'gpt
  * Creates an OpenAI LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - OpenAI API key
- * @param {string} [opts.model='gpt-5.6'] - Model name
+ * @param {string} [opts.model='gpt-6.1-sol'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=2048] - Max tokens
  * @returns {object} LLM instance
  */
-function createLLM({ apiKey, model = 'gpt-5.6', temperature = 0.7, maxTokens = 2048, ...config }) {
+function createLLM({ apiKey, model = 'gpt-6.1-sol', temperature = 0.7, maxTokens = 2048, ...config }) {
   const client = new OpenAI({ apiKey });
 
   const callApi = async (messages) => {
@@ -235,12 +235,12 @@ function createLLM({ apiKey, model = 'gpt-5.6', temperature = 0.7, maxTokens = 2
  * Creates an OpenAI streaming LLM instance
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - OpenAI API key
- * @param {string} [opts.model='gpt-5.6'] - Model name
+ * @param {string} [opts.model='gpt-6.1-sol'] - Model name
  * @param {number} [opts.temperature=0.7] - Temperature
  * @param {number} [opts.maxTokens=2048] - Max tokens
  * @returns {object} Streaming LLM instance
  */
-function createStreamingLLM({ apiKey, model = 'gpt-5.6', temperature = 0.7, maxTokens = 2048, ...config }) {
+function createStreamingLLM({ apiKey, model = 'gpt-6.1-sol', temperature = 0.7, maxTokens = 2048, ...config }) {
   return {
     streamChat: async (messages) => {
       const fetchUrl = 'https://api.openai.com/v1/chat/completions';
@@ -271,4 +271,4 @@ module.exports = {
     createStreamingLLM,
     isReasoningModel,
     buildChatParams,
-}; 
+};

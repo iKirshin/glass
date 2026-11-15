@@ -15,6 +15,9 @@ const {
     COMPETENCE_MODES,
     LANGUAGE_LEVELS,
     MAX_RESUME_CHARS,
+    MAX_JOB_DESCRIPTION_CHARS,
+    MAX_CASE_STUDIES_CHARS,
+    MAX_KNOWN_LANGUAGES,
 } = require('../common/prompts/personaPrompt');
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -22,7 +25,21 @@ const SUPPORTED_EXTENSIONS = ['pdf', 'docx', 'txt', 'md', 'markdown', 'json', 'c
 
 function toRow(profile = {}) {
     const p = normalizeProfile(profile);
-    return {
+    if ('known_languages' in profile || 'knownLanguages' in profile) {
+        let languages = profile.known_languages ?? profile.knownLanguages;
+        if (typeof languages === 'string') {
+            try { languages = JSON.parse(languages); } catch { throw new Error('Invalid language list'); }
+        }
+        if (!Array.isArray(languages) || languages.length > MAX_KNOWN_LANGUAGES || languages.length !== p.knownLanguages.length) {
+            throw new Error(`Choose a name and level for each language, without duplicates (maximum ${MAX_KNOWN_LANGUAGES}).`);
+        }
+    }
+    if ('answer_language_mode' in profile || 'answerLanguageMode' in profile) {
+        const mode = profile.answer_language_mode ?? profile.answerLanguageMode;
+        if (!['question', 'fixed'].includes(mode)) throw new Error('Invalid answer language mode');
+        if (mode === 'fixed' && !p.answerLanguage) throw new Error('Specify the fixed answer language');
+    }
+    const row = {
         enabled: p.enabled ? 1 : 0,
         display_name: p.displayName,
         target_role: p.targetRole,
@@ -34,6 +51,22 @@ function toRow(profile = {}) {
         answer_language: p.answerLanguage,
         extra_instructions: p.extraInstructions,
     };
+    // Older clients do not send these fields; preserve saved context on updates.
+    if ('job_description' in profile || 'jobDescription' in profile) {
+        row.job_description = p.jobDescription;
+    }
+    if ('case_studies' in profile || 'caseStudies' in profile) {
+        row.case_studies = p.caseStudies;
+    }
+    if ('known_languages' in profile || 'knownLanguages' in profile) row.known_languages = JSON.stringify(p.knownLanguages);
+    if ('answer_language_mode' in profile || 'answerLanguageMode' in profile) row.answer_language_mode = p.answerLanguageMode;
+    return row;
+}
+
+function profileForClient(row) {
+    if (!row) return null;
+    const p = normalizeProfile(row);
+    return { ...row, known_languages: p.knownLanguages, answer_language_mode: p.answerLanguageMode };
 }
 
 async function extractTextFromFile(filePath) {
@@ -71,7 +104,7 @@ function cleanupText(text) {
 class PersonaService {
     async getProfile() {
         try {
-            return personaRepository.getProfile();
+            return profileForClient(personaRepository.getProfile());
         } catch (error) {
             console.error('[PersonaService] getProfile failed:', error);
             return null;
@@ -82,7 +115,7 @@ class PersonaService {
         const saved = personaRepository.saveProfile(toRow(profile));
         console.log(`[PersonaService] Profile saved (résumé ${saved?.resume_text?.length || 0} chars, mode=${saved?.competence_mode}, level=${saved?.language_level})`);
         internalBridge.emit('persona:updated', saved);
-        return saved;
+        return profileForClient(saved);
     }
 
     async deleteProfile() {
@@ -92,10 +125,10 @@ class PersonaService {
     }
 
     /** System-prompt block for the current profile, '' when disabled or empty. */
-    async getPromptBlock() {
+    async getPromptBlock(options = {}) {
         try {
             const profile = await this.getProfile();
-            return buildPersonaPromptBlock(profile);
+            return buildPersonaPromptBlock(profile, options);
         } catch (error) {
             console.error('[PersonaService] Failed to build persona prompt block:', error);
             return '';
@@ -107,15 +140,26 @@ class PersonaService {
             competenceModes: Object.entries(COMPETENCE_MODES).map(([id, m]) => ({ id, label: m.label })),
             languageLevels: Object.entries(LANGUAGE_LEVELS).map(([id, l]) => ({ id, label: l.label })),
             maxResumeChars: MAX_RESUME_CHARS,
+            maxJobDescriptionChars: MAX_JOB_DESCRIPTION_CHARS,
+            maxCaseStudiesChars: MAX_CASE_STUDIES_CHARS,
+            maxKnownLanguages: MAX_KNOWN_LANGUAGES,
             supportedExtensions: SUPPORTED_EXTENSIONS,
         };
     }
 
     /** Opens a file picker and returns the extracted résumé text (does not save). */
     async importResumeFile() {
+        return this.importTextFile('Choose your résumé', MAX_RESUME_CHARS);
+    }
+
+    async importCasesFile() {
+        return this.importTextFile('Choose interview cases', MAX_CASE_STUDIES_CHARS);
+    }
+
+    async importTextFile(title, maxChars) {
         const parent = BrowserWindow.getFocusedWindow() || undefined;
         const result = await dialog.showOpenDialog(parent, {
-            title: 'Choose your résumé',
+            title,
             properties: ['openFile'],
             filters: [
                 { name: 'Documents', extensions: SUPPORTED_EXTENSIONS },
@@ -135,10 +179,10 @@ class PersonaService {
                 success: true,
                 text,
                 fileName: path.basename(filePath),
-                truncated: text.length > MAX_RESUME_CHARS,
+                truncated: text.length > maxChars,
             };
         } catch (error) {
-            console.error('[PersonaService] importResumeFile failed:', error);
+            console.error('[PersonaService] File import failed:', error);
             return { success: false, error: error.message };
         }
     }

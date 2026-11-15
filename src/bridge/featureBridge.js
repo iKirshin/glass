@@ -19,6 +19,8 @@ module.exports = {
   // Renderer로부터의 요청을 수신하고 서비스로 전달
   initialize() {
     // Settings Service
+    ipcMain.handle('settings:get-stt-language', () => settingsService.getSttLanguageSetting());
+    ipcMain.handle('settings:set-stt-language', (event, language) => settingsService.setSttLanguageSetting(language));
     ipcMain.handle('settings:getPresets', async () => await settingsService.getPresets());
     ipcMain.handle('settings:get-auto-update', async () => await settingsService.getAutoUpdateSetting());
     ipcMain.handle('settings:set-auto-update', async (event, isEnabled) => await settingsService.setAutoUpdateSetting(isEnabled));  
@@ -84,8 +86,10 @@ module.exports = {
     ipcMain.handle('ollama:shutdown', async (event, force = false) => await ollamaService.handleShutdown(force));
 
     // Ask
-    ipcMain.handle('ask:sendQuestionFromAsk', async (event, userPrompt) => await askService.sendMessage(userPrompt));
+    ipcMain.handle('ask:sendQuestionFromAsk', async (event, userPrompt, options) => await askService.sendMessage(userPrompt, [], options));
     ipcMain.handle('ask:sendQuestionFromSummary', async (event, userPrompt) => await askService.sendMessage(userPrompt));
+    ipcMain.handle('ask:getRequestOptions', () => askService.getRequestOptions());
+    ipcMain.handle('ask:setRequestOptions', (event, options) => askService.setRequestOptions(options));
     ipcMain.handle('ask:toggleAskButton', async () => await askService.toggleAskButton());
     ipcMain.handle('ask:closeAskWindow',  async () => await askService.closeAskWindow());
     ipcMain.handle('ask:clearResponse',   async () => await askService.clearResponse());
@@ -137,6 +141,7 @@ module.exports = {
     ipcMain.handle('persona:delete-profile', async () => await personaService.deleteProfile());
     ipcMain.handle('persona:get-options', () => personaService.getOptions());
     ipcMain.handle('persona:import-resume-file', async () => await personaService.importResumeFile());
+    ipcMain.handle('persona:import-cases-file', async () => await personaService.importCasesFile());
     ipcMain.handle('persona:optimize-resume', async (e, payload) => await personaService.optimizeResume(payload || {}));
     ipcMain.handle('persona:open-window', () => personaService.openWindow());
     ipcMain.handle('platform:get-invisibility-support', () => require('../features/common/utils/platformSupport').getInvisibilitySupport());

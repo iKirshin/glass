@@ -434,6 +434,15 @@ async function openRecordingsFolder() {
     return require('../listen/recordingService').openFolder();
 }
 
+async function getSttLanguageSetting() {
+    return settingsRepository.getSttLanguage();
+}
+
+async function setSttLanguageSetting(language) {
+    try { return { success: true, language: settingsRepository.setSttLanguage(language) }; }
+    catch (error) { return { success: false, error: error.message }; }
+}
+
 async function setAutoUpdateSetting(isEnabled) {
     try {
         await settingsRepository.setAutoUpdate(isEnabled);
@@ -465,6 +474,8 @@ function notifyPresetUpdate(action, presetId, title = null) {
 }
 
 module.exports = {
+    getSttLanguageSetting,
+    setSttLanguageSetting,
     initialize,
     cleanup,
     notifyPresetUpdate,

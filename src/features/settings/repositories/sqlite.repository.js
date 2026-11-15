@@ -1,4 +1,5 @@
 const sqliteClient = require('../../common/services/sqliteClient');
+const { isSttLanguage, normalizeSttLanguage } = require('../../common/config/sttLanguages');
 
 function getPresets(uid) {
     const db = sqliteClient.getDb();
@@ -135,6 +136,21 @@ function setAutoUpdate(uid, isEnabled) {
     }
 }
 
+function getSttLanguage(uid) {
+    const row = sqliteClient.getDb().prepare('SELECT stt_language FROM users WHERE uid = ?').get(uid);
+    return normalizeSttLanguage(row?.stt_language);
+}
+
+function setSttLanguage(uid, language) {
+    if (!isSttLanguage(language)) throw new Error('Unsupported Nova-3 recognition language');
+    const db = sqliteClient.getDb();
+    db.prepare(`INSERT INTO users (uid, display_name, email, created_at, stt_language)
+        VALUES (?, 'Local User', '', ?, ?)
+        ON CONFLICT(uid) DO UPDATE SET stt_language = excluded.stt_language`)
+        .run(uid, Math.floor(Date.now() / 1000), language);
+    return language;
+}
+
 function getRecordListen(uid) {
     const db = sqliteClient.getDb();
     try {
@@ -190,6 +206,8 @@ function setRecordListen(uid, isEnabled) {
 }
 
 module.exports = {
+    getSttLanguage,
+    setSttLanguage,
     getFilterThemAudio,
     setFilterThemAudio,
     getRecordListen,

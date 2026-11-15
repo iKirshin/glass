@@ -134,6 +134,8 @@ class AskService {
             currentQuestion: '',
             currentResponse: '',
             showTextInput: true,
+            attachScreen: false,
+            includePersonalContext: true,
         };
         console.log('[AskService] Service instance created.');
     }
@@ -143,6 +145,21 @@ class AskService {
         if (askWindow && !askWindow.isDestroyed()) {
             askWindow.webContents.send('ask:stateUpdate', this.state);
         }
+    }
+
+    getRequestOptions() {
+        return {
+            attachScreen: this.state.attachScreen,
+            includePersonalContext: this.state.includePersonalContext,
+        };
+    }
+
+    // Session-only choices shared by Submit, the global shortcut and Listen suggestions.
+    setRequestOptions(options) {
+        for (const key of ['attachScreen', 'includePersonalContext']) {
+            if (typeof options?.[key] === 'boolean') this.state[key] = options[key];
+        }
+        return this.getRequestOptions();
     }
 
     async toggleAskButton(inputScreenOnly = false) {
@@ -201,6 +218,7 @@ class AskService {
             }
     
             this.state = {
+                ...this.state,
                 isVisible      : false,
                 isLoading      : false,
                 isStreaming    : false,
@@ -234,7 +252,9 @@ class AskService {
      * @param {string} userPrompt
      * @returns {Promise<{success: boolean, response?: string, error?: string}>}
      */
-    async sendMessage(userPrompt, conversationHistoryRaw=[]) {
+    async sendMessage(userPrompt, conversationHistoryRaw=[], requestOptions) {
+        // Snapshot before any await so later checkbox changes only affect the next request.
+        const { attachScreen, includePersonalContext } = this.setRequestOptions(requestOptions);
         internalBridge.emit('window:requestVisibility', { name: 'ask', visible: true });
         this.state = {
             ...this.state,
@@ -268,8 +288,11 @@ class AskService {
             }
             console.log(`[AskService] Using model: ${modelInfo.model} for provider: ${modelInfo.provider}`);
 
-            const screenshotResult = await captureScreenshot({ quality: 'medium' });
-            const screenshotBase64 = screenshotResult.success ? screenshotResult.base64 : null;
+            let screenshotBase64 = null;
+            if (attachScreen) {
+                const screenshotResult = await captureScreenshot({ quality: 'medium' });
+                screenshotBase64 = screenshotResult.success ? screenshotResult.base64 : null;
+            }
 
             // IPC callers pass no history; fall back to the live Listen transcript so the
             // answer is based on what was actually said, not only on the screenshot.
@@ -284,7 +307,7 @@ class AskService {
             const conversationHistory = this._formatConversationForPrompt(historySource);
             console.log(`[AskService] Conversation context: ${historySource.length} transcript lines (last ${Math.min(30, historySource.length)} used)`);
 
-            const personaBlock = await personaService.getPromptBlock();
+            const personaBlock = await personaService.getPromptBlock({ includePersonalContext });
             if (personaBlock) console.log('[AskService] Persona profile applied to system prompt');
             const systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false, personaBlock);
 

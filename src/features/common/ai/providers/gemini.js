@@ -1,6 +1,14 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai")
 const { GoogleGenAI } = require("@google/genai")
 
+function buildGenerationConfig(model, temperature, maxTokens) {
+  const config = { maxOutputTokens: maxTokens, responseMimeType: "text/plain" }
+  // Gemini 4 Argon and Hydrogen do not use sampling parameters.
+  if (!/^gemini-4-(?:argon|hydrogen)(?:-|$)/.test(model)) config.temperature = temperature
+  if (/^gemini-4-hydrogen(?:-|$)/.test(model)) config.thinkingConfig = { thinkingLevel: "LOW" }
+  return config
+}
+
 class GeminiProvider {
     static async validateApiKey(key) {
         if (!key || typeof key !== 'string') {
@@ -34,11 +42,11 @@ class GeminiProvider {
  * @param {object} [opts.callbacks] - Event callbacks
  * @returns {Promise<object>} STT session
  */
-async function createSTT({ apiKey, language = "en-US", callbacks = {}, model = "gemini-live-2.5-flash-preview", ...config }) {
+async function createSTT({ apiKey, language = "en-US", callbacks = {}, model = "gemini-3.1-flash-live-preview", ...config }) {
   const liveClient = new GoogleGenAI({ vertexai: false, apiKey })
 
   // Language code BCP-47 conversion
-  const lang = language.includes("-") ? language : `${language}-US`
+  const lang = language === 'multi' ? null : ({ en: 'en-US', ru: 'ru-RU' }[language] || language)
 
   const session = await liveClient.live.connect({
 
@@ -54,7 +62,7 @@ async function createSTT({ apiKey, language = "en-US", callbacks = {}, model = "
 
     config: {
       inputAudioTranscription: {},
-      speechConfig: { languageCode: lang },
+      ...(lang ? { speechConfig: { languageCode: lang } } : {}),
     },
   })
 
@@ -74,12 +82,7 @@ function createLLM({ apiKey, model = "gemini-3.8-flash", temperature = 0.7, maxT
     generateContent: async (parts) => {
       const geminiModel = client.getGenerativeModel({
         model: model,
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens,
-          // Ensure we get text responses, not JSON
-          responseMimeType: "text/plain",
-        },
+        generationConfig: buildGenerationConfig(model, temperature, maxTokens),
       })
 
       const systemPrompt = ""
@@ -151,12 +154,7 @@ function createLLM({ apiKey, model = "gemini-3.8-flash", temperature = 0.7, maxT
         systemInstruction:
           systemInstruction ||
           "Respond naturally in plain text format. Do not use JSON or structured responses unless specifically requested.",
-        generationConfig: {
-          temperature: temperature,
-          maxOutputTokens: maxTokens,
-          // Force plain text responses
-          responseMimeType: "text/plain",
-        },
+        generationConfig: buildGenerationConfig(model, temperature, maxTokens),
       })
 
       const chat = geminiModel.startChat({
@@ -174,10 +172,10 @@ function createLLM({ apiKey, model = "gemini-3.8-flash", temperature = 0.7, maxT
           } else if (part.type === "text") {
             geminiContent.push(part.text)
           } else if (part.type === "image_url" && part.image_url) {
-            const base64Data = part.image_url.url.split(",")[1]
+            const [mimeInfo, base64Data] = part.image_url.url.split(",")
             geminiContent.push({
               inlineData: {
-                mimeType: "image/png",
+                mimeType: mimeInfo.match(/data:([^;]+)/)?.[1] || "image/jpeg",
                 data: base64Data,
               },
             })
@@ -232,12 +230,7 @@ function createStreamingLLM({ apiKey, model = "gemini-3.8-flash", temperature = 
         systemInstruction:
           systemInstruction ||
           "Respond naturally in plain text format. Do not use JSON or structured responses unless specifically requested.",
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens || 8192,
-          // Force plain text responses
-          responseMimeType: "text/plain",
-        },
+        generationConfig: buildGenerationConfig(model, temperature, maxTokens || 8192),
       })
 
       const stream = new ReadableStream({
@@ -253,10 +246,10 @@ function createStreamingLLM({ apiKey, model = "gemini-3.8-flash", temperature = 
                 } else if (part.type === "text") {
                   geminiContent.push(part.text)
                 } else if (part.type === "image_url" && part.image_url) {
-                  const base64Data = part.image_url.url.split(",")[1]
+                  const [mimeInfo, base64Data] = part.image_url.url.split(",")
                   geminiContent.push({
                     inlineData: {
-                      mimeType: "image/png",
+                      mimeType: mimeInfo.match(/data:([^;]+)/)?.[1] || "image/jpeg",
                       data: base64Data,
                     },
                   })
@@ -321,6 +314,7 @@ function createStreamingLLM({ apiKey, model = "gemini-3.8-flash", temperature = 
 }
 
 module.exports = {
+    buildGenerationConfig,
     GeminiProvider,
     createSTT,
     createLLM,

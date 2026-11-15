@@ -1,4 +1,5 @@
 import { html, css, LitElement } from '../assets/lit-core-2.7.4.min.js';
+import { STT_LANGUAGES } from '../../features/common/config/sttLanguages.js';
 // import { getOllamaProgressTracker } from '../../features/common/services/localProgressTracker.js'; // 제거됨
 
 export class SettingsView extends LitElement {
@@ -480,6 +481,12 @@ export class SettingsView extends LitElement {
         
         /* Dropdown styles */
         select.model-dropdown {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            font-size: 12px;
+            padding: 6px;
+            border-radius: 4px;
             background: rgba(0,0,0,0.2);
             color: white;
             cursor: pointer;
@@ -492,6 +499,14 @@ export class SettingsView extends LitElement {
         
         select.model-dropdown option:disabled {
             color: rgba(255,255,255,0.4);
+        }
+
+        .stt-language-hint {
+            color: rgba(255,255,255,0.6);
+            font-size: 10px;
+            line-height: 1.4;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
             
         /* ────────────────[ GLASS BYPASS ]─────────────── */
@@ -528,6 +543,9 @@ export class SettingsView extends LitElement {
         recordListenEnabled: { type: Boolean, state: true },
         invisibilitySupport: { type: Object, state: true },
         filterThemAudioEnabled: { type: Boolean, state: true },
+        sttLanguage: { type: String, state: true },
+        sttLanguageStatus: { type: String, state: true },
+        sttLanguageSaving: { type: Boolean, state: true },
         isLoading: { type: Boolean, state: true },
         isContentProtectionOn: { type: Boolean, state: true },
         saving: { type: Boolean, state: true },
@@ -562,6 +580,9 @@ export class SettingsView extends LitElement {
         this.recordListenEnabled = true;
         this.invisibilitySupport = null;
         this.filterThemAudioEnabled = true;
+        this.sttLanguage = 'multi';
+        this.sttLanguageStatus = '';
+        this.sttLanguageSaving = false;
         this._personaListener = () => this.loadPersonaSummary();
         this.apiKeys = { openai: '', gemini: '', anthropic: '', whisper: '' };
         this.providerConfig = {};
@@ -621,6 +642,26 @@ export class SettingsView extends LitElement {
         } catch (e) {
             console.error('Error loading record-listen setting:', e);
         }
+    }
+
+    async loadSttLanguageSetting() {
+        if (!window.api?.settingsView?.getSttLanguage) return;
+        try { this.sttLanguage = await window.api.settingsView.getSttLanguage(); }
+        catch (error) { this.sttLanguageStatus = 'Could not load recognition language.'; }
+    }
+
+    async handleSttLanguageChange(event) {
+        const previous = this.sttLanguage;
+        this.sttLanguageSaving = true;
+        try {
+            const result = await window.api.settingsView.setSttLanguage(event.target.value);
+            if (!result?.success) throw new Error(result?.error || 'Could not save recognition language');
+            this.sttLanguage = result.language;
+            this.sttLanguageStatus = 'Saved. Applies when you next start Listen.';
+        } catch (error) {
+            event.target.value = previous;
+            this.sttLanguageStatus = error.message;
+        } finally { this.sttLanguageSaving = false; }
     }
 
     async loadFilterThemAudioSetting() {
@@ -711,6 +752,7 @@ export class SettingsView extends LitElement {
         this.isLoading = true;
         this.loadPersonaSummary();
         this.loadRecordListenSetting();
+        this.loadSttLanguageSetting();
         this.loadFilterThemAudioSetting();
         this.loadInvisibilitySupport();
         try {
@@ -1050,7 +1092,7 @@ export class SettingsView extends LitElement {
                 <select id="custom-model-provider-${type}" ?disabled=${this.saving}>
                     ${providers.map(p => html`<option value=${p.id}>${p.name}</option>`)}
                 </select>
-                <input id="custom-model-id-${type}" type="text" placeholder="Model id (e.g. gpt-5.6-terra)"
+                <input id="custom-model-id-${type}" type="text" placeholder=${type === 'llm' ? 'Model id (e.g. gpt-6.1-sol)' : 'Model id'}
                     ?disabled=${this.saving}
                     @keydown=${(e) => { if (e.key === 'Enter') this.handleAddCustomModel(type); }}>
                 <button class="settings-button" ?disabled=${this.saving} @click=${() => this.handleAddCustomModel(type)}>Add</button>
@@ -1082,6 +1124,7 @@ export class SettingsView extends LitElement {
                 hasResume: !!(p.resume_text && p.resume_text.trim()),
                 mode: p.competence_mode || 'balanced',
                 level: p.language_level || 'native',
+                languages: p.known_languages || [],
             } : null;
         } catch (error) {
             console.error('[SettingsView] Failed to load persona summary:', error);
@@ -1092,6 +1135,7 @@ export class SettingsView extends LitElement {
     formatModelPricing(model) {
         const p = model?.pricing;
         if (!p) return '';
+        if (p.priceUnconfirmed) return 'Price unconfirmed';
         if (p.free) return 'free · local';
         if (p.perMinute !== undefined) return `$${p.perMinute}/min`;
         if (p.input !== undefined) {
@@ -1101,15 +1145,27 @@ export class SettingsView extends LitElement {
         return '';
     }
 
+    modelPricingTitle(model) {
+        const p = model?.pricing;
+        if (!p) return '';
+        if (p.input === undefined && !p.priceUnconfirmed) return p.note || (p.free ? 'Local model, no API fee' : 'USD per minute of audio');
+        return [
+            'USD: вход / выход за 1 млн токенов. Стандартный API без скидок за кеш и Batch; выход включает токены рассуждения.',
+            p.verifiedAt ? `Цены проверены ${p.verifiedAt}; это справочник, не расчёт стоимости запроса.` : '',
+            p.note,
+            p.source,
+        ].filter(Boolean).join('\n');
+    }
+
     getPersonaStatusText() {
         const s = this.personaSummary;
-        if (!s || (!s.hasResume && s.level === 'native' && s.mode === 'balanced')) {
+        if (!s || (!s.hasResume && !s.languages?.length && s.level === 'native' && s.mode === 'balanced')) {
             return 'Add your résumé, competence limits and language level (B1/B2/C1) so answers sound like you.';
         }
         const parts = [
             s.hasResume ? 'Résumé loaded' : 'No résumé',
             `${s.mode} mode`,
-            s.level === 'native' ? 'native level' : `level ${s.level}`,
+            s.languages?.length ? s.languages.map(l => `${l.language} ${l.level}`).join(', ') : (s.level === 'native' ? 'native level' : `level ${s.level}`),
         ];
         return (s.enabled ? '' : 'Disabled · ') + parts.join(' · ');
     }
@@ -1479,6 +1535,8 @@ export class SettingsView extends LitElement {
             const model = models.find(m => m.id === id);
             return model ? model.name : id;
         }
+        const retiredStt = Object.values(this.providerConfig).flatMap(config => config.sttModels || [])
+            .find(model => model.id === this.selectedStt && model.retired);
 
         const modelSelectionHTML = html`
             <div class="model-selection-section">
@@ -1498,7 +1556,7 @@ export class SettingsView extends LitElement {
                                 return html`
                                     <div class="model-item ${this.selectedLlm === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('llm', model.id)}>
-                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}${this.formatModelPricing(model) ? html`<span class="model-price" title="List price, in / out">${this.formatModelPricing(model)}</span>` : ''}</span>
+                                        <span>${model.name}${model.legacy ? html`<span class="model-badge" title="Сохранённый выбор. Доступны модели нового поколения.">предыдущая</span>` : ''}${model.custom ? html`<span class="model-badge">custom</span>` : ''}${this.formatModelPricing(model) ? html`<span class="model-price" title=${this.modelPricingTitle(model)}>${this.formatModelPricing(model)}</span>` : ''}</span>
                                         ${model.custom ? html`<button class="model-remove" title="Remove custom model"
                                             @click=${(e) => { e.stopPropagation(); this.handleRemoveCustomModel('llm', model.id); }}>✕</button>` : ''}
                                         ${isOllama ? html`
@@ -1520,7 +1578,15 @@ export class SettingsView extends LitElement {
                     ` : ''}
                 </div>
                 <div class="model-select-group">
-                    <label>STT Model: <strong>${getModelName('stt', this.selectedStt) || 'Not Set'}</strong></label>
+                    <label>STT Model: <strong>${retiredStt?.name || getModelName('stt', this.selectedStt) || 'Not Set'}</strong></label>
+                    ${retiredStt ? html`<div class="stt-language-hint" role="status">This model has been retired. Choose another STT model.</div>` : ''}
+                    <label for="stt-language">Recognition language</label>
+                    <select id="stt-language" class="model-dropdown" .value=${this.sttLanguage}
+                        ?disabled=${this.sttLanguageSaving} @change=${this.handleSttLanguageChange}>
+                        ${STT_LANGUAGES.map(option => html`<option value=${option.id} ?selected=${option.id === this.sttLanguage}>${option.label}</option>`)}
+                    </select>
+                    <div class="stt-language-hint">Nova-3 multilingual supports 55 languages, including Russian and English in the same conversation. Other providers may support fewer languages. This setting is independent of your answer language.</div>
+                    <div class="stt-language-hint" role="status">${this.sttLanguageStatus}</div>
                     <button class="settings-button full-width" @click=${() => this.toggleModelList('stt')} ?disabled=${this.saving || (this.availableSttModels.length === 0 && this.getCustomModelProviders('stt').length === 0)}>
                         Change STT Model
                     </button>
@@ -1537,7 +1603,7 @@ export class SettingsView extends LitElement {
                                 return html`
                                     <div class="model-item ${this.selectedStt === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('stt', model.id)}>
-                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}${this.formatModelPricing(model) ? html`<span class="model-price" title="List price, in / out">${this.formatModelPricing(model)}</span>` : ''}</span>
+                                        <span>${model.name}${model.custom ? html`<span class="model-badge">custom</span>` : ''}${this.formatModelPricing(model) ? html`<span class="model-price" title=${this.modelPricingTitle(model)}>${this.formatModelPricing(model)}</span>` : ''}</span>
                                         ${model.custom ? html`<button class="model-remove" title="Remove custom model"
                                             @click=${(e) => { e.stopPropagation(); this.handleRemoveCustomModel('stt', model.id); }}>✕</button>` : ''}
                                         ${isWhisper ? html`

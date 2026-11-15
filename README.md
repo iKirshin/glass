@@ -134,15 +134,54 @@ We have a list of [help wanted](https://github.com/pickle-com/glass/issues?q=is%
 Settings → **My Profile & Résumé** opens a window where you can:
 
 - **Load your résumé** as text or from a file (PDF, DOCX, TXT, Markdown). Answers then use your real roles, projects, tools and results as examples ("At Acme I…").
+- **Add a job description** to match your real examples to the vacancy. Without one, Ask selects from 3–5 supported achievements and develops one relevant example per question.
+- **Add interview cases** in the separate **Interview cases** field or use **Load cases…**. Keep context, evidence, personal contribution, choices, constraints, results and limitations together. Explicit corrections take precedence over older résumé summaries; drafts and hypothetical calculations are not treated as achievements. Résumé optimization does not modify your cases.
 - **Set competence boundaries**:
   - *Strict* — only your real experience; on unfamiliar questions the answer admits the limit and reasons it through like a person would, instead of sounding omniscient.
   - *Balanced* (default) — your experience plus general professional knowledge, honest about depth.
   - *Open* — full knowledge, résumé used for examples.
   - Plus free-text notes about what you do and do not know.
-- **Pick a language level (CEFR)**: native, C2, C1, B2, B1, A2. The wording of answers is adapted to that level (vocabulary, sentence length, natural non-native phrasing) so it sounds like you speaking, and optionally a fixed answer language.
+- **List the languages you know**, with an individual level for each: Native, C2, C1, B2, B1, A2 or A1. Answers use the level for their language, not one shared level. The default style is used only for languages without an individual level; it is not evidence of language proficiency.
+- **Choose the answer language**: “Same as the question” follows the latest interview question, including language switches, or “Always use one language” keeps a fixed language. Existing fixed-language profiles keep their choice and level until edited. The setting takes precedence over language instructions in the résumé or extra instructions.
 - Add extra instructions (answer length, style, things to avoid).
 
 The profile is stored locally in the app database (`persona_profile` table) and is injected into the system prompt of the *Ask* feature only when enabled. Prompt text lives in [`src/features/common/prompts/personaPrompt.js`](src/features/common/prompts/personaPrompt.js).
+
+Ask has two per-session checkboxes beneath the question field:
+
+- **Прикрепить экран** (Attach screen) is **off by default**. When enabled, each question includes a fresh screenshot; when disabled, Ask does not capture or send the screen.
+- **Использовать резюме, кейсы и вакансию** (Use résumé, cases and vacancy) is **on by default**. Uncheck it for general questions to omit those materials, personal background notes and experience-selection guidance. Conversation context, answer language/proficiency and custom response instructions remain. Facts already present in the dialogue or custom instructions are not redacted.
+
+These choices apply to Submit, Enter/the Ask shortcut and Listen suggestions. They survive clearing the answer and closing/reopening Ask, and reset to the defaults when the app restarts. They never edit or delete the saved profile. Turn personal context back on for questions about your experience.
+
+Job descriptions and cases are editable in both the desktop profile and the local dashboard's **Interview Profile** page. Both fields are saved in full; when personal context is selected, requests include up to 20,000 characters of the vacancy and 30,000 characters of cases, with a warning in the form when exceeded. Selected profile context is sent to the chosen AI provider as part of Ask requests. Personal cases are not bundled with the application or committed to this repository.
+
+Local regression checks (without AI requests or access to the user's database):
+
+```bash
+node --test tests/window-movement.test.cjs
+env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron tests/window-movement.smoke.cjs
+ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron --test tests/persona-job-description.test.cjs
+ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron --test tests/stt-language.test.cjs tests/language-storage.test.cjs
+env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron tests/language-ui.smoke.cjs
+env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron tests/persona-profile.smoke.cjs
+npm run build:renderer
+env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron tests/persona-window.smoke.cjs
+npm run build:web
+env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron tests/persona-dashboard.smoke.cjs
+```
+
+The window smoke test loads the actual desktop HTML and app shell with synthetic profile data. It checks form scrolling, focus visibility and fixed header/footer at several window heights and 150% zoom. Trackpad/mouse scrolling should also be checked in the running app on an unlocked desktop.
+
+### Recognition language
+
+Settings → **Recognition language** is independent of the profile's answer language and CEFR levels. The menu includes regional entries for [Nova-3](https://developers.deepgram.com/docs/models-languages-overview). The hosted Nova-3 **Multilingual** mode covers [55 languages](https://developers.deepgram.com/changelog/2026/10/23), including Russian and English within the same conversation. Other STT providers may support fewer languages.
+
+Changes apply on the next **Listen** start. The chosen language stays the same through timed renewal and automatic STT recovery. Valid Cyrillic or other non-Latin transcripts are no longer discarded by the text filter. `OPENAI_TRANSCRIBE_LANG` is no longer used as a hidden override; use the visible setting instead.
+
+Language settings migrate locally without deleting the résumé, cases or recordings. No historical audio is retranscribed automatically. Local tests verify request parameters and prompt construction, not provider accuracy: validate with a new, consenting bilingual test call before relying on it in an interview. App version numbers change only on an explicit user request.
+
+The main window can be dragged or moved with the configured arrow shortcuts beyond the screen edges. On macOS, `Cmd+Shift+Left` / `Cmd+Shift+Right` brings it back to a visible screen edge (on Windows/Linux, use `Ctrl` instead of `Cmd`). Explicit screen switching and initial settings/profile placement still keep those windows accessible. The movement smoke test verifies native offscreen positions and recovery without touching user data.
 
 ### Local mode (no cloud account)
 
@@ -170,9 +209,9 @@ The app is renamed to **InPro** (`appId: com.ikirshin.inpro`), so it installs an
 
 **What changed**
 
-- Built-in LLM catalog contains only current models: OpenAI GPT-5.6 family, Claude Opus 5 / Sonnet 5 / Haiku 4.5, Gemini 3.8 Flash / 3.1 Pro. Older ones (GPT-4.1, Gemini 2.5) can still be added as custom models.
-- The model picker shows list prices next to each model (per 1M tokens in/out for LLMs, per minute of audio for STT). Prices are hard-coded in `factory.js` as of Sep 2026; update them there when providers change pricing.
-- Providers now handle the newer model families correctly (reasoning models use `max_completion_tokens` and no `temperature`; Claude 4.7+ models omit sampling params; text is extracted from text blocks only).
+- The answer-model picker offers GPT-6.1 Sol / GPT-6.1 Terra / GPT-6 Astra / GPT-6 Luna, Claude Sonnet 5.5 / Opus 5.5 / Haiku 5.5, and Gemini 4 Hydrogen / 4 Argon / 3.8 Flash / 3.5 Flash-Lite. Saved previous-generation choices remain selectable. A saved `gpt-5.6` choice resolves to `gpt-5.6-sol` without changing the stored setting.
+- Prices use `$4 / $20 per 1M` (USD, uncached input / output, standard API). Hover a price for the check date, provider source and pricing conditions. The catalog applies announced changes for Argon and Flash on their effective dates. After the GPT-5.6 Sol promotion expires, the app marks its rate as unconfirmed until the catalog has a verified rate.
+- Providers use compatible answer parameters: GPT reasoning models use `max_completion_tokens`, low effort and no `temperature`; new Claude 5.5 models omit sampling params and use low effort for live answers; Argon omits deprecated sampling params. Only answer text, not thinking blocks, is displayed. Model access still depends on the configured provider account.
 - **Custom models**: any model id can be registered for an API-based provider without code changes.
 
 **Adding a model from the UI**

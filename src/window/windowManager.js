@@ -208,7 +208,8 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
     internalBridge.on('window:moveHeaderTo', ({ newX, newY }) => {
         const header = windowPool.get('header');
         if (header) {
-            const newPosition = layoutManager.calculateClampedPosition(header, { x: newX, y: newY });
+            const newPosition = layoutManager.calculateManualPosition(header, { x: newX, y: newY });
+            if (!newPosition) return;
             header.setPosition(newPosition.x, newPosition.y);
         }
     });
@@ -461,6 +462,8 @@ function createFeatureWindows(header, namesToCreate) {
         skipTaskbar: true,
         hiddenInMissionControl: true,
         resizable: false,
+        // Also disables macOS frame constraining during offscreen movement.
+        enableLargerThanScreen: true,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -723,6 +726,7 @@ function createWindows() {
         skipTaskbar: true,
         hiddenInMissionControl: true,
         resizable: false,
+        enableLargerThanScreen: true,
         focusable: true,
         acceptFirstMouse: true,
         webPreferences: {

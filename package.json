@@ -1,7 +1,7 @@
 {
     "name": "inpro",
     "productName": "InPro",
-    "version": "0.2.4",
+    "version": "0.2.6",
     "description": "InPro — Interview Provider: a personal live-interview co-pilot that answers as you would (fork of Pickle Glass)",
     "main": "src/index.js",
     "scripts": {

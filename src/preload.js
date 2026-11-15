@@ -151,7 +151,9 @@ contextBridge.exposeInMainWorld('api', {
     adjustWindowHeight: (winName, height) => ipcRenderer.invoke('adjust-window-height', { winName, height }),
     
     // Message Handling
-    sendMessage: (text) => ipcRenderer.invoke('ask:sendQuestionFromAsk', text),
+    sendMessage: (text, options) => ipcRenderer.invoke('ask:sendQuestionFromAsk', text, options),
+    getRequestOptions: () => ipcRenderer.invoke('ask:getRequestOptions'),
+    setRequestOptions: (options) => ipcRenderer.invoke('ask:setRequestOptions', options),
 
     // Listeners
     onAskStateUpdate: (callback) => ipcRenderer.on('ask:stateUpdate', callback),
@@ -232,6 +234,8 @@ contextBridge.exposeInMainWorld('api', {
     downloadWhisperModel: (modelId) => ipcRenderer.invoke('whisper:download-model', modelId),
     
     // Settings Management
+    getSttLanguage: () => ipcRenderer.invoke('settings:get-stt-language'),
+    setSttLanguage: (language) => ipcRenderer.invoke('settings:set-stt-language', language),
     getPresets: () => ipcRenderer.invoke('settings:getPresets'),
     getAutoUpdate: () => ipcRenderer.invoke('settings:get-auto-update'),
     setAutoUpdate: (isEnabled) => ipcRenderer.invoke('settings:set-auto-update', isEnabled),
@@ -279,6 +283,7 @@ contextBridge.exposeInMainWorld('api', {
     deleteProfile: () => ipcRenderer.invoke('persona:delete-profile'),
     getOptions: () => ipcRenderer.invoke('persona:get-options'),
     importResumeFile: () => ipcRenderer.invoke('persona:import-resume-file'),
+    importCasesFile: () => ipcRenderer.invoke('persona:import-cases-file'),
     optimizeResume: (payload) => ipcRenderer.invoke('persona:optimize-resume', payload),
     closeWindow: () => ipcRenderer.invoke('persona:close-window'),
   },

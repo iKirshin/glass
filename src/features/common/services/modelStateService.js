@@ -1,6 +1,6 @@
 const { EventEmitter } = require('events');
 const Store = require('electron-store');
-const { PROVIDERS, getProviderClass } = require('../ai/factory');
+const { PROVIDERS, getProviderClass, normalizeLlmModelId, resolveModelPricing } = require('../ai/factory');
 const customModels = require('../ai/customModels');
 const encryptionService = require('./encryptionService');
 const providerSettingsRepository = require('../repositories/providerSettings');
@@ -135,7 +135,7 @@ class ModelStateService extends EventEmitter {
 
         const activeSettings = await providerSettingsRepository.getActiveSettings();
         const selectedModels = {
-            llm: activeSettings.llm?.selected_llm_model || null,
+            llm: normalizeLlmModelId(activeSettings.llm?.selected_llm_model) || null,
             stt: activeSettings.stt?.selected_stt_model || null
         };
         
@@ -246,6 +246,7 @@ class ModelStateService extends EventEmitter {
             type = arg2;
         }
         if (!modelId || !type) return null;
+        if (type === 'llm') modelId = normalizeLlmModelId(modelId);
         for (const providerId in PROVIDERS) {
             const models = type === 'llm' ? PROVIDERS[providerId].llmModels : PROVIDERS[providerId].sttModels;
             if (models && models.some(m => m.id === modelId)) {
@@ -262,15 +263,19 @@ class ModelStateService extends EventEmitter {
     async getSelectedModels() {
         const active = await providerSettingsRepository.getActiveSettings();
         return {
-            llm: active.llm?.selected_llm_model || null,
+            llm: normalizeLlmModelId(active.llm?.selected_llm_model) || null,
             stt: active.stt?.selected_stt_model || null,
         };
     }
     
     async setSelectedModel(type, modelId) {
+        if (type === 'llm') modelId = normalizeLlmModelId(modelId);
         const provider = this.getProviderForModel(modelId, type);
         if (!provider) {
             console.warn(`[ModelStateService] No provider found for model ${modelId}`);
+            return false;
+        }
+        if (type === 'stt' && PROVIDERS[provider]?.sttModels.some(model => model.id === modelId && model.retired)) {
             return false;
         }
 
@@ -310,10 +315,13 @@ class ModelStateService extends EventEmitter {
                 const installed = ollamaModelRepository.getInstalledModels();
                 available.push(...installed.map(m => ({ id: m.name, name: m.name })));
             } else if (PROVIDERS[providerId]?.[modelListKey]) {
-                available.push(...PROVIDERS[providerId][modelListKey]);
+                const savedModel = type === 'llm' ? normalizeLlmModelId(setting.selected_llm_model) : setting.selected_stt_model;
+                const choices = PROVIDERS[providerId][modelListKey]
+                    .filter(model => !model.retired && (!model.legacy || model.id === savedModel));
+                available.push(...choices);
             }
         }
-        return [...new Map(available.map(item => [item.id, item])).values()];
+        return [...new Map(available.map(item => [item.id, item])).values()].map(model => resolveModelPricing(model));
     }
 
     async getCurrentModelInfo(type) {
@@ -325,7 +333,7 @@ class ModelStateService extends EventEmitter {
 
         return {
             provider: activeSetting.provider,
-            model: model,
+            model: type === 'llm' ? normalizeLlmModelId(model) : model,
             apiKey: activeSetting.api_key,
         };
     }
@@ -387,7 +395,7 @@ class ModelStateService extends EventEmitter {
         const config = {};
         for (const key in PROVIDERS) {
             const { handler, ...rest } = PROVIDERS[key];
-            config[key] = rest;
+            config[key] = { ...rest, llmModels: rest.llmModels.map(model => resolveModelPricing(model)) };
         }
         return config;
     }

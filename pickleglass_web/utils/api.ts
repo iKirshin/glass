@@ -72,17 +72,26 @@ export interface SessionDetails {
   summary: Summary | null;
 }
 
+export interface KnownLanguage {
+  language: string;
+  level: string;
+}
+
 export interface PersonaProfile {
   uid?: string;
   enabled: number | boolean | null;
   display_name: string | null;
   target_role: string | null;
+  job_description?: string | null;
+  case_studies?: string | null;
   resume_text: string | null;
   resume_file_name: string | null;
   competence_mode: string | null;
   expertise_notes: string | null;
   language_level: string | null;
   answer_language: string | null;
+  answer_language_mode?: 'question' | 'fixed';
+  known_languages?: KnownLanguage[];
   extra_instructions: string | null;
   updated_at?: number;
 }
@@ -90,7 +99,10 @@ export interface PersonaProfile {
 export interface PersonaOptions {
   competenceModes: { id: string; label: string }[];
   languageLevels: { id: string; label: string }[];
+  maxKnownLanguages?: number;
   maxResumeChars: number;
+  maxJobDescriptionChars?: number;
+  maxCaseStudiesChars?: number;
   supportedExtensions: string[];
 }
 
@@ -98,7 +110,8 @@ export interface ModelOption {
   id: string;
   name: string;
   custom?: boolean;
-  pricing?: { input?: number; output?: number; perMinute?: number; free?: boolean; note?: string };
+  legacy?: boolean;
+  pricing?: { input?: number; output?: number; perMinute?: number; free?: boolean; priceUnconfirmed?: boolean; note?: string; verifiedAt?: string; source?: string };
 }
 
 export interface ModelSettings {
