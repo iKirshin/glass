@@ -23,7 +23,7 @@ function buildMessageParams({ model, maxTokens, temperature, systemPrompt, messa
   }
   // 5.5 enables adaptive thinking by default. Low effort suits short, live
   // interview answers; never send the now-invalid disabled/budget_tokens modes.
-  if (/^claude-(opus|sonnet|haiku)-5-5(?:-|$)/.test(model || "")) {
+  if (/^claude-(?:(?:opus|sonnet|haiku)-5-5|fable-5-2)(?:-|$)/.test(model || "")) {
     params.output_config = { effort: "low" }
   }
   if (stream) params.stream = true

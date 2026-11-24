@@ -26,16 +26,16 @@ function loadModule(file, dependencies, globals = {}) {
 
 test('current answer catalog has exact official IDs and standard, non-Batch prices', () => {
     const expected = {
-        openai: [['gpt-6.1-sol', 2, 10], ['gpt-6.1-terra', 1, 5], ['gpt-6-astra', 10, 50], ['gpt-6-luna', 0.1, 0.5]],
-        anthropic: [['claude-sonnet-5-5', 2, 10], ['claude-opus-5-5', 4, 20], ['claude-haiku-5-5', 0.1, 0.5]],
-        gemini: [['gemini-3.8-flash', 0.75, 3.75], ['gemini-4-hydrogen', 1.5, 7.5], ['gemini-4-argon', 2, 10], ['gemini-3.5-flash-lite', 0.3, 2.5]],
+        openai: [['gpt-6.2-sol', 2, 10], ['gpt-6.2-astra', 8, 40], ['gpt-6.1-sol', 2, 10], ['gpt-6.1-terra', 1, 5], ['gpt-6-astra', 10, 50], ['gpt-6-luna', 0.1, 0.5]],
+        anthropic: [['claude-sonnet-5-5', 2, 10], ['claude-opus-5-5', 4, 20], ['claude-haiku-5-5', 0.1, 0.5], ['claude-fable-5-2', 8, 40]],
+        gemini: [['gemini-3.8-flash', 0.75, 3.75], ['gemini-4-hydrogen', 1.5, 7.5], ['gemini-4-carbon', 2, 10], ['gemini-4-neon', 3, 15], ['gemini-4-argon', 2, 10], ['gemini-3.5-flash-lite', 0.3, 2.5]],
     };
     const ids = new Set();
     for (const [provider, entries] of Object.entries(expected)) {
         assert.deepEqual(current(provider).map(m => [m.id, m.pricing.input, m.pricing.output]), entries);
         for (const m of PROVIDERS[provider].llmModels) {
             assert.ok(!ids.has(m.id)); ids.add(m.id);
-            assert.match(m.pricing.verifiedAt, /^2026-(10-19|11-14)$/);
+            assert.match(m.pricing.verifiedAt, /^2026-(10-19|11-14|11-24)$/);
             assert.match(m.pricing.source, /^https:\/\//);
             assert.ok(m.pricing.input > 0 && m.pricing.output > 0);
         }
@@ -57,6 +57,8 @@ test('standard rates change on the announced UTC dates without mutating the cata
     };
     assert.deepEqual(prices('gemini-4-argon', '2026-11-30T23:59:59Z'), [2, 10]);
     assert.deepEqual(prices('gemini-4-argon', '2026-12-01T00:00:00Z'), [4, 20]);
+    assert.deepEqual(prices('gemini-4-carbon', '2026-11-30T23:59:59Z'), [2, 10]);
+    assert.deepEqual(prices('gemini-4-carbon', '2026-12-01T00:00:00Z'), [4, 20]);
     assert.deepEqual(prices('gemini-3.8-flash', '2026-12-31T23:59:59Z'), [0.75, 3.75]);
     assert.deepEqual(prices('gemini-3.8-flash', '2027-01-01T00:00:00Z'), [1.5, 7.5]);
     assert.deepEqual(prices('gpt-5.6-sol', '2026-11-30T23:59:59Z'), [4, 20]);
@@ -96,7 +98,7 @@ test('catalog refresh preserves a saved legacy model on startup and hides other 
     assert.deepEqual(writes, []);
     assert.equal((await service.getSelectedModels()).llm, 'gpt-5.6-luna');
     const available = plain(await service.getAvailableModels('llm'));
-    assert.deepEqual(available.map(m => m.id), ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna', 'gpt-5.6-luna']);
+    assert.deepEqual(available.map(m => m.id), ['gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna', 'gpt-5.6-luna']);
     assert.equal(available.at(-1).legacy, true);
     assert.equal(service.getProviderForModel('gpt-5.6', 'llm'), 'openai');
     assert.equal(service.getProviderForModel('llm', 'gpt-5.6-terra'), 'openai');
@@ -146,7 +148,7 @@ test('custom selections are retained, not priced speculatively or replaced on st
 test('new installations select the balanced default, not the most expensive model', async () => {
     const { service } = modelState(null);
     await service._autoSelectAvailableModels([], true);
-    assert.equal((await service.getSelectedModels()).llm, 'gpt-6.1-sol');
+    assert.equal((await service.getSelectedModels()).llm, 'gpt-6.2-sol');
 });
 
 function providerFixture(provider) {
@@ -223,7 +225,7 @@ for (const provider of ['openai', 'anthropic', 'gemini']) {
                         assert.equal(request.generationConfig.maxOutputTokens, 2048);
                         assert.equal(request.generationConfig.responseMimeType, 'text/plain');
                         assert.equal(request.generationConfig.temperature, model.startsWith('gemini-4-') ? undefined : 0.7);
-                        assert.equal(request.generationConfig.thinkingConfig?.thinkingLevel, model === 'gemini-4-hydrogen' ? 'LOW' : undefined);
+                        assert.equal(request.generationConfig.thinkingConfig?.thinkingLevel, /^gemini-4-(hydrogen|carbon|neon)$/.test(model) ? 'LOW' : undefined);
                     }
                     assert.equal(JSON.stringify(request).includes('cGl4ZWw='), withImage);
                     if (withImage) assert.match(JSON.stringify(request), /image\/jpeg/);

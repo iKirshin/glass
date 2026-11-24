@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
             const defaults = {
                 unchangedSelection: view.selectedLlm === 'gpt-5.6-luna',
                 legacyLabel: selected.textContent.includes('предыдущая'),
-                currentCount: items.length === 12,
+                currentCount: items.length === 17,
                 correctFormat: prices.every(text => /^\\$[0-9.]+ \\/ \\$[0-9.]+ per 1M$/.test(text)),
                 lowPrice: priceFor('GPT-6 Luna').textContent === '$0.1 / $0.5 per 1M',
                 opusPrice: priceFor('Claude Opus 5.5').textContent === '$4 / $20 per 1M',

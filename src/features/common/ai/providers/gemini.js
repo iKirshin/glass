@@ -3,9 +3,9 @@ const { GoogleGenAI } = require("@google/genai")
 
 function buildGenerationConfig(model, temperature, maxTokens) {
   const config = { maxOutputTokens: maxTokens, responseMimeType: "text/plain" }
-  // Gemini 4 Argon and Hydrogen do not use sampling parameters.
-  if (!/^gemini-4-(?:argon|hydrogen)(?:-|$)/.test(model)) config.temperature = temperature
-  if (/^gemini-4-hydrogen(?:-|$)/.test(model)) config.thinkingConfig = { thinkingLevel: "LOW" }
+  // Gemini 4 uses thinking levels instead of sampling controls.
+  if (!/^gemini-4-(?:argon|hydrogen|carbon|neon)(?:-|$)/.test(model)) config.temperature = temperature
+  if (/^gemini-4-(?:hydrogen|carbon|neon)(?:-|$)/.test(model)) config.thinkingConfig = { thinkingLevel: "LOW" }
   return config
 }
 
