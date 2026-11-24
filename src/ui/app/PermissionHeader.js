@@ -30,7 +30,7 @@ export class PermissionHeader extends LitElement {
             width: 285px;
             /* height is now set dynamically */
             padding: 18px 20px;
-            background: rgba(0, 0, 0, 0.3);
+            background: #1c1c1e;
             border-radius: 16px;
             overflow: hidden;
             position: relative;
@@ -584,4 +584,4 @@ export class PermissionHeader extends LitElement {
     }
 }
 
-customElements.define('permission-setup', PermissionHeader); 
+customElements.define('permission-setup', PermissionHeader);
